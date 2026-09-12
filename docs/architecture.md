@@ -1,5 +1,7 @@
 # Architecture decisions — Phase 0A
 
+**Update 2026-09-12:** The user approved a local manual-entry MVP while FightHistory research is deferred. See [manual MVP](manual-mvp.md) for the implemented architecture and scope. The original phase gate below continues to apply to production FightHistory parsing/schema, not the newly authorized manual UI. No binary fields have been verified.
+
 ## Scope and phase gate
 
 Use one private npm package while only research tooling exists. Split into apps and shared packages when API/frontend consumers exist. Strict TypeScript with Node's test runner through tsx keeps the research environment small. Do not create speculative production migrations or a full dashboard.
