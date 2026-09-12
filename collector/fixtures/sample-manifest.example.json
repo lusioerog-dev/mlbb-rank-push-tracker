@@ -1,0 +1,22 @@
+{
+  "manifestVersion": 1,
+  "sampleId": "sample-001",
+  "synthetic": false,
+  "deviceAlias": null,
+  "actualPlayerAlias": null,
+  "gameBuild": null,
+  "androidVersion": null,
+  "packageName": null,
+  "accessMethod": null,
+  "capturedAt": null,
+  "timezone": "Asia/Kathmandu",
+  "originalPathPrivate": null,
+  "fileModifiedAt": null,
+  "rawSha256": null,
+  "sanitizedSha256": null,
+  "playedOnThisDevice": null,
+  "screenEvidence": [],
+  "observedFields": {},
+  "notes": [],
+  "privacyReview": "not-reviewed"
+}
