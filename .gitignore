@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+collector/fixtures/*
+!collector/fixtures/README.md
+!collector/fixtures/sample-manifest.example.json
+research-private/
+*.log

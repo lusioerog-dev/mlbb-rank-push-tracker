@@ -1,0 +1,28 @@
+{
+  "name": "mlbb-rank-push-tracker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "tsx collector/src/cli.ts",
+    "inspect": "tsx collector/src/cli.ts",
+    "test": "tsx --test collector/tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.13.4",
+    "eslint": "10.10.0",
+    "prettier": "3.9.6",
+    "tsx": "4.23.13",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.0"
+  }
+}
