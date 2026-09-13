@@ -1,4 +1,4 @@
-import { stateSchema } from "./model";
+import { stateSchema, starChange } from "./model";
 import type { Dataset, TrackerState } from "./model";
 import { initialState } from "./seed";
 export interface StoragePort {
@@ -61,6 +61,8 @@ export function exportCsv(state: TrackerState) {
       "duration_seconds",
       "stars_before",
       "stars_after",
+      "star_delta",
+      "mythic_checkpoint",
       "rank_tier",
       "source",
       "notes",
@@ -81,6 +83,8 @@ export function exportCsv(state: TrackerState) {
       m.durationSeconds,
       m.starsBefore,
       m.starsAfter,
+      starChange(m),
+      m.mythicCheckpoint ?? null,
       m.rankTier,
       m.source,
       m.notes,

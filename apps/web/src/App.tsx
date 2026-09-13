@@ -38,6 +38,10 @@ import {
   ordered,
   starChange,
   stats,
+  accountProgression,
+  dailyProgression,
+  playerContributions,
+  formatPlaytime,
 } from "../../../packages/tracker/model";
 import {
   exportCsv,
@@ -78,6 +82,7 @@ export function App({ remote }: { remote?: RemoteStore }) {
   const [windowSize, setWindowSize] = useState("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [graphMode, setGraphMode] = useState<"day" | "game">("day");
   const file = useRef<HTMLInputElement>(null);
   const saving = useRef(false);
   const [reload, setReload] = useState(0);
@@ -227,7 +232,7 @@ export function App({ remote }: { remote?: RemoteStore }) {
   const summary = stats(matches);
   const target = state.push.targetStars;
   const progress =
-    target !== null && target > state.push.startingStars
+    !rank.incomplete && target !== null && target > state.push.startingStars
       ? Math.min(
           100,
           Math.max(
@@ -238,19 +243,13 @@ export function App({ remote }: { remote?: RemoteStore }) {
           ),
         )
       : null;
-  const rankMatches = ordered(state.matches).filter((m) => m.mode === "ranked");
   const chart = [
-    {
-      label: "Start",
-      stars: state.push.startingStars as number | null,
-      player: "Account baseline",
-    },
-    ...rankMatches.map((m, i) => ({
-      label: `${i + 1}`,
-      stars: m.starsAfter,
-      player: state.players.find((p) => p.id === m.playerId)!.name,
-    })),
+    ...(graphMode === "day"
+      ? dailyProgression(state)
+      : accountProgression(state)),
   ];
+  const seasonProgress =
+    state.push.startingRank && state.push.startingRank.tier !== "Mythic";
   const date = (iso: string) =>
     new Date(iso).toLocaleString("en-GB", {
       timeZone: state.push.timezone,
@@ -559,16 +558,30 @@ export function App({ remote }: { remote?: RemoteStore }) {
                     </span>
                   </div>
                   <p className="rank-tier">
-                    {rank.tier || "Rank tier not yet recorded"}
+                    {rank.tier ||
+                      (rank.needsRankConfirmation
+                        ? "Rank needs confirmation"
+                        : "Choose starting rank in Settings")}
                   </p>
                   <div className="star-total">
-                    {rank.stars}
+                    {rank.rankStars ??
+                      (rank.incomplete || rank.needsRankConfirmation
+                        ? "—"
+                        : rank.stars)}
                     <span>stars</span>
                   </div>
                   <p className="rank-change">
-                    {signed(rank.stars - state.push.startingStars)} from the
-                    starting {state.push.startingStars}
+                    {rank.incomplete
+                      ? "Unknown change"
+                      : signed(rank.stars - state.push.startingStars)}{" "}
+                    from the starting {state.push.startingStars}
                   </p>
+                  {seasonProgress && (
+                    <p className="small">
+                      Season star progress:{" "}
+                      {rank.incomplete ? "unknown" : rank.stars}
+                    </p>
+                  )}
                   <div className="progress-track">
                     <div style={{ width: `${progress ?? 0}%` }} />
                   </div>
@@ -589,7 +602,7 @@ export function App({ remote }: { remote?: RemoteStore }) {
                   <small>
                     Last recorded:{" "}
                     {rank.at ? date(rank.at) : "starting baseline"}
-                    {rank.incomplete ? " · newer match has unknown stars" : ""}
+                    {rank.incomplete ? " · incomplete star history" : ""}
                   </small>
                 </div>
                 <div className="stat-grid">
@@ -642,15 +655,35 @@ export function App({ remote }: { remote?: RemoteStore }) {
                       <p className="eyebrow">THE CLIMB</p>
                       <h2>Account progression</h2>
                     </div>
-                    <span className="tag">All ranked matches</span>
+                    <div
+                      className="graph-toggle"
+                      role="group"
+                      aria-label="Progression view"
+                    >
+                      <button
+                        aria-pressed={graphMode === "day"}
+                        onClick={() => setGraphMode("day")}
+                      >
+                        By day
+                      </button>
+                      <button
+                        aria-pressed={graphMode === "game"}
+                        onClick={() => setGraphMode("game")}
+                      >
+                        By game
+                      </button>
+                    </div>
                   </div>
                   <p className="muted small">
-                    Shared account history · unaffected by player filters
+                    Shared account history · all ranked matches ·{" "}
+                    {graphMode === "day"
+                      ? state.push.timezone
+                      : "unaffected by player filters"}
                   </p>
                   <div
                     className="chart"
                     role="img"
-                    aria-label={`Account star history: ${chart.map((p) => `${p.label}: ${p.stars ?? "unknown"}`).join(", ")}`}
+                    aria-label={`Account star history by ${graphMode}: ${chart.map((p) => `${p.label}: ${p.stars ?? "unknown"}`).join(", ")}`}
                   >
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart
@@ -680,7 +713,9 @@ export function App({ remote }: { remote?: RemoteStore }) {
                           }}
                           formatter={(value) => [`${value} stars`, "Account"]}
                           labelFormatter={(_label, payload) =>
-                            payload[0]?.payload?.player ?? "Account"
+                            payload[0]?.payload
+                              ? `${payload[0].payload.label}: ${payload[0].payload.startingStars ?? "?"} → ${payload[0].payload.stars ?? "?"} · ${signed(payload[0].payload.delta)} stars${graphMode === "day" ? ` · ${payload[0].payload.games} games, ${payload[0].payload.wins}W/${payload[0].payload.losses}L` : ` · ${payload[0].payload.player}`}`
+                              : "Account"
                           }
                         />
                         <Line
@@ -696,15 +731,22 @@ export function App({ remote }: { remote?: RemoteStore }) {
                           }}
                           activeDot={{ r: 6 }}
                           connectNulls={false}
+                          isAnimationActive={false}
                         />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
                   <div className="chart-footer">
                     <span>
-                      <span className="player-dot p0" /> Recorded account stars
+                      <span className="player-dot p0" />{" "}
+                      {seasonProgress
+                        ? "Season star progress"
+                        : "Account stars"}
                     </span>
-                    <span>Match sequence →</span>
+                    <span>
+                      {graphMode === "day" ? "Calendar day" : "Match sequence"}{" "}
+                      →
+                    </span>
                   </div>
                 </section>
                 <section className="panel players-panel">
@@ -715,8 +757,8 @@ export function App({ remote }: { remote?: RemoteStore }) {
                     </div>
                     <Users size={20} className="muted" />
                   </div>
-                  {state.players.map((p, i) => {
-                    const s = stats(matches.filter((m) => m.playerId === p.id));
+                  {playerContributions(state, matches).map((s, i) => {
+                    const p = s.player;
                     return (
                       <div className="player-summary" key={p.id}>
                         <div className={`player-avatar p${i % 3}`}>
@@ -729,6 +771,13 @@ export function App({ remote }: { remote?: RemoteStore }) {
                               ? `${s.games} games · ${percent(s.winRate)} win rate`
                               : "No matches in this view"}
                           </span>
+                          {s.games > 0 && (
+                            <span>
+                              {s.durationCoverage
+                                ? `${formatPlaytime(s.seconds)} ${s.durationCoverage === s.games ? "played" : "recorded"}`
+                                : "Playtime not recorded"}
+                            </span>
+                          )}
                         </div>
                         <div className="player-stars">
                           <strong

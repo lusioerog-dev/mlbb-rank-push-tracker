@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { X } from "lucide-react";
-import { currentRank, saveMatch } from "../../../packages/tracker/model";
+import {
+  currentRank,
+  saveMatch,
+  starChange,
+  deleteMatch,
+} from "../../../packages/tracker/model";
 import type { Match, TrackerState } from "../../../packages/tracker/model";
 import { localInput, toInstant } from "../../../packages/tracker/time";
 
@@ -66,7 +71,15 @@ export function MatchForm({
               : (minutes ?? 0) * 60 + (seconds ?? 0),
           starsBefore: mode === "ranked" ? number("before") : null,
           starsAfter: mode === "ranked" ? number("after") : null,
-          rankTier: text("tier"),
+          starDelta:
+            mode === "ranked"
+              ? (number("delta") ??
+                (match?.starDelta === null ? null : undefined))
+              : null,
+          ...(mode === "ranked" && number("checkpoint") !== null
+            ? { mythicCheckpoint: number("checkpoint") }
+            : {}),
+          rankTier: match?.rankTier ?? "",
           source: match?.source ?? "manual",
           notes: text("notes"),
           createdAt: match?.createdAt ?? now,
@@ -193,15 +206,6 @@ export function MatchForm({
               <option value="unknown">Unknown</option>
             </select>
           </label>
-          <label>
-            Rank tier
-            <input
-              name="tier"
-              maxLength={80}
-              defaultValue={match?.rankTier ?? state.push.rankTier}
-              placeholder="Optional, e.g. Mythical Immortal"
-            />
-          </label>
         </div>
         <fieldset>
           <legend>
@@ -233,23 +237,57 @@ export function MatchForm({
         </fieldset>
         {mode === "ranked" && (
           <fieldset>
-            <legend>Actual account stars</legend>
+            <legend>Ranked star change</legend>
+            <label>
+              Stars gained / lost
+              <input
+                name="delta"
+                type="number"
+                step="1"
+                min="-10000"
+                max="10000"
+                defaultValue={match ? (starChange(match) ?? "") : ""}
+                placeholder="e.g. +1, -1 or 0"
+              />
+            </label>
+            {(currentRank(state).needsRankConfirmation ||
+              match?.mythicCheckpoint !== undefined) && (
+              <label>
+                Confirmed Mythic stars after placement (optional)
+                <input
+                  name="checkpoint"
+                  type="number"
+                  min="0"
+                  max="1000000"
+                  step="1"
+                  defaultValue={match?.mythicCheckpoint ?? ""}
+                  placeholder="Use the game's final placement result"
+                />
+              </label>
+            )}
             <p className="muted small">
-              Use the before → after values from history. A loss can have zero
-              change. For tier changes, leave these blank and note both ranks
-              below.
+              Enter the actual star change, including bonuses or protection.
+              Victory does not always mean +1. If change is blank, two known
+              original observations can supply their difference. Rank is
+              calculated from your season starting rank.
             </p>
-            <div className="form-grid">
-              {numeric(
-                "Before this match",
-                "before",
-                match ? match.starsBefore : currentRank(state).stars,
-              )}
-              {numeric("After this match", "after", match?.starsAfter)}
-            </div>
+            <details>
+              <summary>Original star observations (optional)</summary>
+              <div className="form-grid">
+                {numeric(
+                  "Before this match",
+                  "before",
+                  match ? match.starsBefore : undefined,
+                )}
+                {numeric("After this match", "after", match?.starsAfter)}
+              </div>
+            </details>
             <p className="muted small">
-              Before is suggested from the latest record. Check it for older
-              matches.
+              {!state.push.startingRank
+                ? "Select the season starting rank once in Settings to enable rank labels."
+                : currentRank(state).needsRankConfirmation
+                  ? "Rank needs confirmation: check placement results or missing star changes before relying on a rank estimate."
+                  : `Current account rank: ${currentRank(state).tier}.`}
             </p>
           </fieldset>
         )}
@@ -280,6 +318,45 @@ export function MatchForm({
           </p>
         )}
         <div className="form-actions">
+          {match && (
+            <button
+              type="button"
+              disabled={pending}
+              className="text-button negative"
+              onClick={async (event) => {
+                const reason = (
+                  event.currentTarget.form!.elements.namedItem(
+                    "correction",
+                  ) as HTMLInputElement
+                ).value;
+                if (!reason.trim()) {
+                  setError("Explain the deletion in Reason for correction.");
+                  return;
+                }
+                if (
+                  !window.confirm(
+                    "Remove this match from statistics? Its original record will remain in correction history.",
+                  )
+                )
+                  return;
+                setPending(true);
+                try {
+                  await onSave(deleteMatch(state, match.id, reason));
+                  onClose();
+                } catch (error) {
+                  setError(
+                    error instanceof Error
+                      ? error.message
+                      : "Could not delete match.",
+                  );
+                } finally {
+                  setPending(false);
+                }
+              }}
+            >
+              Delete match
+            </button>
+          )}
           <button type="button" onClick={onClose}>
             Cancel
           </button>

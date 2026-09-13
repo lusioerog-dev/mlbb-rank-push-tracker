@@ -6,6 +6,7 @@ import { App } from "./App";
 import { stateSchema } from "../../../packages/tracker/model";
 import type { TrackerState } from "../../../packages/tracker/model";
 import { loadState } from "../../../packages/tracker/storage";
+import { initialState } from "../../../packages/tracker/seed";
 
 export interface RemoteStore {
   id: string;
@@ -16,6 +17,7 @@ const configSchema = z.object({
   supabaseUrl: z.url(),
   publishableKey: z.string().min(1),
   apiUrl: z.url(),
+  emailAuthEnabled: z.boolean().default(false),
 });
 type Config = z.infer<typeof configSchema>;
 export function Cloud() {
@@ -177,6 +179,12 @@ function Connected({ config }: { config: Config }) {
             Sign in with your own email. Join the same tracker to share matches
             and account stars.
           </p>
+          {!config.emailAuthEnabled && (
+            <p>
+              Use the account created by your tracker owner. Public sign-up and
+              email recovery are not enabled yet.
+            </p>
+          )}
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -207,53 +215,57 @@ function Connected({ config }: { config: Config }) {
             <button disabled={busy} className="primary">
               Sign in
             </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={(event) => {
-                const form = event.currentTarget.form!;
-                if (!form.reportValidity()) return;
-                const data = new FormData(form);
-                void run(async () => {
-                  const { error } = await client.auth.signUp({
-                    email: String(data.get("email")),
-                    password: String(data.get("password")),
-                    options: { emailRedirectTo: window.location.origin },
-                  });
-                  if (error) throw error;
-                  setError(
-                    "Check your email to confirm your account, then sign in.",
-                  );
-                });
-              }}
-            >
-              Create account
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={(event) => {
-                const email = event.currentTarget.form!.elements.namedItem(
-                  "email",
-                ) as HTMLInputElement;
-                if (!email.reportValidity()) return;
-                void run(async () => {
-                  const { error } = await client.auth.signInWithOtp({
-                    email: email.value,
-                    options: {
-                      shouldCreateUser: false,
-                      emailRedirectTo: window.location.origin,
-                    },
-                  });
-                  if (error) throw error;
-                  setError(
-                    "If this account exists, check your email for a sign-in link.",
-                  );
-                });
-              }}
-            >
-              Email me a sign-in link
-            </button>
+            {config.emailAuthEnabled && (
+              <>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={(event) => {
+                    const form = event.currentTarget.form!;
+                    if (!form.reportValidity()) return;
+                    const data = new FormData(form);
+                    void run(async () => {
+                      const { error } = await client.auth.signUp({
+                        email: String(data.get("email")),
+                        password: String(data.get("password")),
+                        options: { emailRedirectTo: window.location.origin },
+                      });
+                      if (error) throw error;
+                      setError(
+                        "Check your email to confirm your account, then sign in.",
+                      );
+                    });
+                  }}
+                >
+                  Create account
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={(event) => {
+                    const email = event.currentTarget.form!.elements.namedItem(
+                      "email",
+                    ) as HTMLInputElement;
+                    if (!email.reportValidity()) return;
+                    void run(async () => {
+                      const { error } = await client.auth.signInWithOtp({
+                        email: email.value,
+                        options: {
+                          shouldCreateUser: false,
+                          emailRedirectTo: window.location.origin,
+                        },
+                      });
+                      if (error) throw error;
+                      setError(
+                        "If this account exists, check your email for a sign-in link.",
+                      );
+                    });
+                  }}
+                >
+                  Email me a sign-in link
+                </button>
+              </>
+            )}
           </form>
         </main>
       ) : (
@@ -297,6 +309,36 @@ function Connected({ config }: { config: Config }) {
               }
             >
               Create shared tracker from local matches
+            </button>
+            <button
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  if (
+                    !window.confirm(
+                      "Start a separate empty season? Your previous trackers and matches will remain available.",
+                    )
+                  )
+                    return;
+                  const empty = initialState("real");
+                  const { id } = z.object({ id: z.string().uuid() }).parse(
+                    await api("/workspaces", "POST", {
+                      ...empty,
+                      matches: [],
+                      audit: [],
+                      push: {
+                        ...empty.push,
+                        name: "New season",
+                        startingStars: 0,
+                      },
+                    }),
+                  );
+                  setIds([...ids, id]);
+                  setActive(id);
+                })
+              }
+            >
+              Start a new shared season
             </button>
             <form
               onSubmit={(event) => {

@@ -1,6 +1,12 @@
 # Shared manual tracker backend
 
-Implementation added 2026-09-13. Production activation requires the steps below; adding code to GitHub does not activate the database or update the Pages deployment.
+Implementation and production configuration added 2026-09-13. Publishing is performed explicitly through Wrangler; pushing GitHub alone does not update this direct-upload Pages project.
+
+Deployment progress on 2026-09-13: Supabase project `xanckgfnjampzgijdnxx` is healthy, the migration ran successfully, and Auth site/redirect URLs are configured. The Worker is deployed at `https://mlbb-tracker-api.lusioer-og.workers.dev` with the approved service-role key stored as an encrypted secret. The owner login exists. Public access to all four tracker tables is denied, and unauthenticated API requests return 401. An authenticated live save/reload still requires the owner to sign in to the website.
+
+The public connection file contains only the Supabase publishable key and URLs. Public registration/email recovery are hidden until a working SMTP sender is configured (`emailAuthEnabled: true`). For this private tracker, provision confirmed users through Supabase Auth; each player uses their own login and joins the same workspace. Never share the owner's password.
+
+For updates, deploy the Worker first with `npx wrangler deploy --keep-vars`, build, then run `npx wrangler pages deploy dist/web --project-name mlbb-rank-push-tracker --branch main`. Pages' production branch is `main`; the GitHub repository branch is `master`. These are separate settings. The root Wrangler file configures the Worker, so Pages intentionally ignores it when deploying the explicitly named static directory.
 
 ## Design
 

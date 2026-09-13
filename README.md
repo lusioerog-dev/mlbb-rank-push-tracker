@@ -1,8 +1,8 @@
 # MLBB Rank Push Tracker
 
-Live website: [Push Together](https://mlbb-rank-push-tracker.pages.dev/). Hosted on Cloudflare Pages; data remains local to each browser and does not yet sync between players or devices.
+Live website: [Push Together](https://mlbb-rank-push-tracker.pages.dev/). Hosted on Cloudflare Pages with Supabase sign-in and a Cloudflare Worker for shared storage. Personal browser storage remains available separately.
 
-Shared-backend code is now included: Supabase sign-in, private workspaces, teammate invitations, Cloudflare API validation and PostgreSQL revision/audit storage. It remains inactive until the database, Worker secrets and public connection configuration are deployed. See [backend setup and verification](docs/backend.md).
+Shared-backend configuration is deployed: private workspaces, teammate invitations, API validation and PostgreSQL revision/audit storage. Sign in with an owner-provisioned account and create or join a shared tracker. See [backend setup and verification](docs/backend.md), [rank rules and season setup](docs/rank-rules.md), and [the feature change report](docs/2026-09-13-update.md).
 
 A shared-account rank tracker for Rupesh and Gaurav, with player entities that can be renamed or extended. The **local manual-entry MVP** supports recording matches, reviewing account stars, comparing players, hero performance, and data export/restore.
 
@@ -15,7 +15,7 @@ npm ci
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Keep the terminal running. The app saves **only in this browser on this origin**; it does not yet sync between devices. Export a JSON backup regularly, particularly before switching browsers, changing URLs or clearing browser data.
+Open `http://127.0.0.1:5173`. Keep the terminal running and choose **Open personal browser tracker** for local development. Production API CORS is restricted to the live website. Personal mode saves only in that browser and origin; shared mode on the live site saves to Supabase. Export backups regularly.
 
 ```sh
 npm run typecheck
@@ -30,8 +30,8 @@ The static dashboard build is in `dist/web`; collector compilation remains in `d
 ## First use
 
 1. The real tracker contains four screenshot-reviewed matches, all attributed to Gaurav as confirmed by the user. The shared account moved from 115 to 117 stars.
-2. Set an optional target, starting rank tier, timezone and player names in Settings. The target and tier are deliberately unset, not guessed.
-3. Choose **Record match**, select who played, and enter the actual result and before/after stars. A loss can have zero change. Empty values stay unknown.
+2. Select the season's actual starting rank/division/stars, timezone and player names in Settings. The target remains optional. Reset ranks are not guessed.
+3. Choose **Record match**, select who played, and enter the actual star change. A protected loss can have zero change. Before/after observations remain optional for compatibility; empty values stay unknown. Rank is derived without typing a rank for each match.
 4. Enter a hero name when known; it becomes a reusable hero entity. Screenshot hero names await user confirmation.
 5. Use the match row's edit button to correct a record. A reason is required; the original record is retained in correction history and JSON backups.
 6. Use the separate **Demo tracker** to practice. Its seven screenshot-based ranked matches have invented human assignments. They never count toward real contributions.

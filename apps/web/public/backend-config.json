@@ -1,1 +1,5 @@
-null
+{
+  "supabaseUrl": "https://xanckgfnjampzgijdnxx.supabase.co",
+  "publishableKey": "sb_publishable_9z-8xP38uCcCWGDN5RJ0XA_D8H03PQ5",
+  "apiUrl": "https://mlbb-tracker-api.lusioer-og.workers.dev"
+}

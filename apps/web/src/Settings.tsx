@@ -2,6 +2,11 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { stateSchema } from "../../../packages/tracker/model";
 import type { TrackerState } from "../../../packages/tracker/model";
+import {
+  RANK_RULES,
+  rankTiers,
+  type StartingRank,
+} from "../../../packages/tracker/rank-rules";
 
 export function Settings({
   state,
@@ -12,6 +17,9 @@ export function Settings({
 }) {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [startTier, setStartTier] = useState<StartingRank["tier"] | "">(
+    state.push.startingRank?.tier ?? "",
+  );
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
@@ -27,7 +35,17 @@ export function Settings({
         name: get("name"),
         season: get("season"),
         timezone: get("timezone"),
-        rankTier: get("rankTier"),
+        rankTier: state.push.rankTier,
+        ...(startTier
+          ? {
+              startingRank: {
+                tier: startTier,
+                division:
+                  startTier === "Mythic" ? null : Number(get("division")),
+                rulesVersion: RANK_RULES.version,
+              },
+            }
+          : {}),
         startingStars: Number(get("startingStars")),
         targetStars: get("targetStars") ? Number(get("targetStars")) : null,
       };
@@ -103,14 +121,47 @@ export function Settings({
               />
             </label>
             <label>
-              Starting rank tier
-              <input
-                name="rankTier"
-                maxLength={80}
-                defaultValue={state.push.rankTier}
-                placeholder="Not yet confirmed"
-              />
+              Season starting rank
+              <select
+                value={startTier}
+                onChange={(e) =>
+                  setStartTier(e.target.value as StartingRank["tier"] | "")
+                }
+              >
+                <option value="">Choose once from in-game rank</option>
+                {rankTiers.map((tier) => (
+                  <option key={tier} value={tier}>
+                    {tier === "Mythic"
+                      ? "Mythic and above (use total Mythic stars)"
+                      : tier}
+                  </option>
+                ))}
+              </select>
             </label>
+            {startTier && startTier !== "Mythic" && (
+              <label>
+                Starting division
+                <select
+                  key={startTier}
+                  name="division"
+                  defaultValue={
+                    state.push.startingRank?.tier === startTier
+                      ? (state.push.startingRank.division ??
+                        RANK_RULES.divisions[startTier].count)
+                      : RANK_RULES.divisions[startTier].count
+                  }
+                >
+                  {Array.from(
+                    { length: RANK_RULES.divisions[startTier].count },
+                    (_, i) => i + 1,
+                  ).map((n) => (
+                    <option key={n} value={n}>
+                      {["", "I", "II", "III", "IV", "V"][n]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label>
               Timezone
               <input
@@ -122,9 +173,11 @@ export function Settings({
             </label>
           </div>
           <p className="small muted">
-            This version compares stars within one tier. For tier transitions,
-            leave match stars blank and record both ranks in notes. Multiple
-            pushes and tier conversion come later.
+            Select the rank and stars shown in-game at the start of this tracked
+            season. The current reset mapping is not verified, so no reset is
+            guessed. Changing this baseline recalculates all matches in this
+            tracker; use a new shared season to preserve the previous season
+            separately.
           </p>
           <fieldset>
             <legend>Players</legend>

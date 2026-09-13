@@ -8,6 +8,30 @@
   align-items: center;
   gap: 12px;
 }
+.graph-toggle {
+  display: flex;
+  gap: 4px;
+  background: #f2f5ee;
+  border-radius: 10px;
+  padding: 4px;
+  flex-shrink: 0;
+}
+.graph-toggle button {
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  padding: 7px 10px;
+  border-radius: 7px;
+}
+.graph-toggle button[aria-pressed="true"] {
+  background: #fff;
+  color: #426b35;
+  box-shadow: 0 1px 4px #0001;
+}
+.progression .section-heading {
+  flex-wrap: wrap;
+  gap: 12px;
+}
 .cloud-bar form {
   display: flex;
   flex-wrap: wrap;

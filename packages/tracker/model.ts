@@ -1,4 +1,11 @@
 import { z } from "zod";
+import {
+  advanceRank,
+  rankLabel,
+  startingRankSchema,
+  RANK_RULES,
+} from "./rank-rules";
+import type { RankPosition } from "./rank-rules";
 
 const id = z.string().min(1).max(100);
 const name = z.string().trim().min(1).max(80);
@@ -20,6 +27,8 @@ export const matchSchema = z
     durationSeconds: z.number().int().positive().max(86400).nullable(),
     starsBefore: count.nullable(),
     starsAfter: count.nullable(),
+    starDelta: z.number().int().min(-10000).max(10000).nullable().optional(),
+    mythicCheckpoint: count.optional(),
     rankTier: z.string().trim().max(80),
     source: z.enum(["manual", "screenshot_review"]),
     notes: z.string().max(2000),
@@ -30,7 +39,10 @@ export const matchSchema = z
   .superRefine((m, ctx) => {
     if (
       m.mode !== "ranked" &&
-      (m.starsBefore !== null || m.starsAfter !== null)
+      (m.starsBefore !== null ||
+        m.starsAfter !== null ||
+        m.starDelta != null ||
+        m.mythicCheckpoint !== undefined)
     )
       ctx.addIssue({
         code: "custom",
@@ -60,6 +72,7 @@ export const stateSchema = z
         }, "Use a valid timezone, e.g. Asia/Kathmandu."),
         rankTier: z.string().trim().max(80),
         startingStars: count,
+        startingRank: startingRankSchema.optional(),
         targetStars: count.nullable(),
       })
       .strict(),
@@ -70,7 +83,7 @@ export const stateSchema = z
           .object({
             id,
             at: instant,
-            action: z.enum(["edit_match", "settings"]),
+            action: z.enum(["edit_match", "delete_match", "settings"]),
             note: z.string().min(1).max(300),
             before: z.union([matchSchema, z.record(z.string(), z.unknown())]),
           })
@@ -104,6 +117,17 @@ export const stateSchema = z
           "Multiple matches have the same time. Resolve duplicate records before import.",
       });
     }
+    if (
+      state.push.startingRank &&
+      state.push.startingRank.tier !== "Mythic" &&
+      state.push.startingStars >
+        RANK_RULES.divisions[state.push.startingRank.tier].stars
+    )
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "Starting stars exceed the selected division. Enter the stars shown in-game.",
+      });
     const tiers = new Set(
       [
         state.push.rankTier,
@@ -114,7 +138,7 @@ export const stateSchema = z
         .map((t) => t.trim().toLowerCase())
         .filter(Boolean),
     );
-    if (tiers.size > 1)
+    if (!state.push.startingRank && tiers.size > 1)
       ctx.addIssue({
         code: "custom",
         message:
@@ -125,6 +149,8 @@ export type TrackerState = z.infer<typeof stateSchema>;
 export type Dataset = TrackerState["dataset"];
 
 export function starChange(match: Match): number | null {
+  if (match.mode !== "ranked") return null;
+  if (match.starDelta !== undefined) return match.starDelta;
   return match.mode === "ranked" &&
     match.starsBefore !== null &&
     match.starsAfter !== null
@@ -139,6 +165,7 @@ export function ordered(matches: Match[]): Match[] {
   );
 }
 export function stats(matches: Match[]) {
+  const rankedGames = matches.filter((m) => m.mode === "ranked").length;
   const wins = matches.filter((m) => m.result === "win").length;
   const losses = matches.filter((m) => m.result === "loss").length;
   const changes = matches
@@ -149,13 +176,14 @@ export function stats(matches: Match[]) {
   );
   return {
     games: matches.length,
+    rankedGames,
     wins,
     losses,
     winRate: wins + losses ? (wins / (wins + losses)) * 100 : null,
     knownNet: changes.reduce((a, b) => a + b, 0),
     starCoverage: changes.length,
     net:
-      changes.length === matches.length && matches.length > 0
+      changes.length === rankedGames && rankedGames > 0
         ? changes.reduce((a, b) => a + b, 0)
         : null,
     seconds: durations.reduce((a, b) => a + b, 0),
@@ -163,21 +191,137 @@ export function stats(matches: Match[]) {
   };
 }
 export function currentRank(state: TrackerState) {
-  const known = ordered(state.matches).filter(
-    (m) => m.mode === "ranked" && m.starsAfter !== null,
-  );
-  const latest = known.at(-1);
+  const points = accountProgression(state);
+  const latest = points.at(-1);
+  const known = [...points].reverse().find((p) => p.stars !== null);
+  const position = latest?.rank ?? null;
   return {
-    stars: latest?.starsAfter ?? state.push.startingStars,
-    tier: latest?.rankTier || state.push.rankTier,
+    stars: latest?.stars ?? known?.stars ?? state.push.startingStars,
+    rankStars: position?.stars ?? null,
+    tier: position ? rankLabel(position) : "",
     at: latest?.playedAt ?? null,
-    incomplete: state.matches.some(
-      (m) =>
-        m.mode === "ranked" &&
-        m.starsAfter === null &&
-        (!latest || Date.parse(m.playedAt) >= Date.parse(latest.playedAt)),
-    ),
+    incomplete: latest?.stars === null,
+    needsRankConfirmation: Boolean(state.push.startingRank && !position),
   };
+}
+
+export function accountProgression(state: TrackerState) {
+  let stars: number | null = state.push.startingStars;
+  let rank: RankPosition | null = state.push.startingRank
+    ? { ...state.push.startingRank, stars }
+    : null;
+  const baseline = {
+    label: "Start",
+    playedAt: null as string | null,
+    stars,
+    startingStars: stars as number | null,
+    delta: 0 as number | null,
+    rank,
+    player: "Account baseline",
+  };
+  return [
+    baseline,
+    ...ordered(state.matches)
+      .filter((m) => m.mode === "ranked")
+      .map((m, i) => {
+        const before = stars;
+        const delta = starChange(m);
+        stars = stars === null || delta === null ? null : stars + delta;
+        rank =
+          rank === null || delta === null ? null : advanceRank(rank, delta);
+        if (m.mythicCheckpoint !== undefined)
+          rank = { tier: "Mythic", division: null, stars: m.mythicCheckpoint };
+        return {
+          label: String(i + 1),
+          playedAt: m.playedAt,
+          stars,
+          startingStars: before,
+          delta,
+          rank,
+          player: state.players.find((p) => p.id === m.playerId)!.name,
+        };
+      }),
+  ];
+}
+export function dailyProgression(state: TrackerState) {
+  const points = accountProgression(state).slice(1);
+  const days = new Map<
+    string,
+    {
+      label: string;
+      stars: number | null;
+      startingStars: number | null;
+      delta: number | null;
+      games: number;
+      wins: number;
+      losses: number;
+      rank: RankPosition | null;
+      player: string;
+    }
+  >();
+  const ranked = ordered(state.matches).filter((m) => m.mode === "ranked");
+  points.forEach((p, i) => {
+    const day = new Intl.DateTimeFormat("en-CA", {
+      timeZone: state.push.timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(p.playedAt!));
+    const existing = days.get(day);
+    const start = existing ? existing.startingStars : p.startingStars;
+    days.set(day, {
+      label: day,
+      stars: p.stars,
+      startingStars: start,
+      delta:
+        existing?.delta === null || p.delta === null
+          ? null
+          : (existing?.delta ?? 0) + p.delta,
+      games: (existing?.games ?? 0) + 1,
+      wins: (existing?.wins ?? 0) + (ranked[i]!.result === "win" ? 1 : 0),
+      losses: (existing?.losses ?? 0) + (ranked[i]!.result === "loss" ? 1 : 0),
+      rank: p.rank,
+      player: day,
+    });
+  });
+  return [...days.values()]; // Omit unplayed dates; never invent pre-tracking history.
+}
+export function formatPlaytime(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  return minutes < 1 && seconds > 0
+    ? "<1m"
+    : minutes < 60
+      ? `${minutes}m`
+      : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+export function playerContributions(state: TrackerState, matches: Match[]) {
+  return state.players.map((player) => ({
+    player,
+    ...stats(matches.filter((m) => m.playerId === player.id)),
+  }));
+}
+export function deleteMatch(
+  state: TrackerState,
+  id: string,
+  reason: string,
+): TrackerState {
+  const before = state.matches.find((m) => m.id === id);
+  if (!before || !reason.trim())
+    throw new Error("Choose a match and explain the deletion.");
+  return stateSchema.parse({
+    ...state,
+    matches: state.matches.filter((m) => m.id !== id),
+    audit: [
+      ...state.audit,
+      {
+        id: crypto.randomUUID(),
+        at: new Date().toISOString(),
+        action: "delete_match",
+        note: reason.trim(),
+        before,
+      },
+    ],
+  });
 }
 export function saveMatch(
   state: TrackerState,
