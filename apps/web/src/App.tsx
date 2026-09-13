@@ -49,6 +49,7 @@ import {
 import { localInput } from "../../../packages/tracker/time";
 import { MatchForm } from "./MatchForm";
 import { Settings } from "./Settings";
+import type { RemoteStore } from "./Cloud";
 
 const signed = (value: number | null) =>
   value === null ? "—" : `${value > 0 ? "+" : ""}${value}`;
@@ -65,7 +66,7 @@ function download(filename: string, text: string, type = "application/json") {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 type Page = "overview" | "matches" | "heroes" | "settings";
-export function App() {
+export function App({ remote }: { remote?: RemoteStore }) {
   const [dataset, setDataset] = useState<Dataset>("real");
   const [state, setState] = useState<TrackerState | null>(null);
   const [fatal, setFatal] = useState("");
@@ -78,20 +79,41 @@ export function App() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const file = useRef<HTMLInputElement>(null);
+  const saving = useRef(false);
+  const [reload, setReload] = useState(0);
+  const shared = Boolean(remote && dataset === "real");
   useEffect(() => {
-    try {
-      setState(loadState(localStorage, dataset));
-      setFatal("");
-    } catch {
-      setState(null);
-      setFatal(
-        "Saved data could not be read. It has not been replaced. Download the saved data below before attempting recovery.",
-      );
-    }
+    let cancelled = false;
+    setState(null);
+    void (
+      shared
+        ? remote!.load()
+        : Promise.resolve().then(() => loadState(localStorage, dataset))
+    )
+      .then((value) => {
+        if (!cancelled) {
+          setState(value);
+          setFatal("");
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setState(null);
+        setFatal(
+          shared
+            ? "Could not open shared storage. Check your connection and try again."
+            : "Saved data could not be read. It has not been replaced. Download the saved data below before attempting recovery.",
+        );
+      });
     setPlayer("all");
     setEditing(undefined);
-  }, [dataset]);
+    return () => {
+      cancelled = true;
+    };
+    // The parent keys this component by user and workspace; token refresh must not reload forms.
+  }, [dataset, reload]);
   useEffect(() => {
+    if (shared) return;
     const handler = (e: StorageEvent) => {
       if (e.key === storageKey(dataset))
         setMessage(
@@ -100,12 +122,53 @@ export function App() {
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
-  }, [dataset]);
-  function save(next: TrackerState) {
+  }, [dataset, shared]);
+  useEffect(() => {
+    if (!shared || !remote || !state) return;
+    let cancelled = false;
+    const refresh = async () => {
+      if (saving.current || document.visibilityState === "hidden") return;
+      try {
+        const latest = await remote.load();
+        if (cancelled || saving.current) return;
+        if (latest.revision > state.revision) {
+          if (editing !== undefined || page === "settings")
+            setMessage(
+              "Your teammate saved changes. Finish or copy your draft, then refresh shared data before saving.",
+            );
+          else
+            setState((current) =>
+              current && latest.revision > current.revision ? latest : current,
+            );
+        }
+      } catch {
+        if (!cancelled)
+          setMessage(
+            "Shared refresh is unavailable. Check your connection; new saves still need server confirmation.",
+          );
+      }
+    };
+    const interval = window.setInterval(() => void refresh(), 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [shared, remote, state, editing, page]);
+  async function save(next: TrackerState) {
     if (!state) return;
-    const saved = persistState(localStorage, next, state.revision);
-    setState(saved);
-    setMessage("Saved in this browser.");
+    if (saving.current) throw new Error("A save is already in progress.");
+    saving.current = true;
+    try {
+      const saved = shared
+        ? await remote!.save({ ...next, revision: state.revision })
+        : persistState(localStorage, next, state.revision);
+      setState(saved);
+      setMessage(
+        shared ? "Saved to your shared tracker." : "Saved in this browser.",
+      );
+    } finally {
+      saving.current = false;
+    }
   }
   async function restore(backup: File) {
     try {
@@ -118,7 +181,7 @@ export function App() {
         )
       )
         return;
-      if (state) save(incoming);
+      if (state) await save(incoming);
       else
         throw new Error(
           "Download the unreadable saved data, then use browser storage recovery before restoring.",
@@ -133,17 +196,19 @@ export function App() {
       <main className="recovery panel">
         <h1>Let’s protect your saved data</h1>
         <p role="alert">{fatal}</p>
-        <button
-          onClick={() =>
-            download(
-              "mlbb-recovery.txt",
-              localStorage.getItem(storageKey(dataset)) ?? "",
-              "text/plain",
-            )
-          }
-        >
-          Download saved data
-        </button>
+        {!shared && (
+          <button
+            onClick={() =>
+              download(
+                "mlbb-recovery.txt",
+                localStorage.getItem(storageKey(dataset)) ?? "",
+                "text/plain",
+              )
+            }
+          >
+            Download saved data
+          </button>
+        )}
         <button onClick={() => window.location.reload()}>Reload</button>
       </main>
     );
@@ -338,7 +403,7 @@ export function App() {
             Every star belongs to the account.
           </p>
           <span className="local-badge">
-            <span /> Saved on this browser
+            <span /> {shared ? "Shared cloud storage" : "Saved on this browser"}
           </span>
         </div>
       </aside>
@@ -349,7 +414,23 @@ export function App() {
             <strong>{nav.find((n) => n[0] === page)![1]}</strong>
           </span>
           <div className="top-actions">
+            {shared && (
+              <button
+                onClick={() => {
+                  if (
+                    !saving.current &&
+                    window.confirm(
+                      "Refresh shared data? Unsaved form changes will be discarded.",
+                    )
+                  )
+                    setReload(reload + 1);
+                }}
+              >
+                Refresh shared data
+              </button>
+            )}
             <select
+              disabled={shared}
               aria-label="Tracker dataset"
               className="dataset"
               value={dataset}
@@ -768,7 +849,8 @@ export function App() {
           )}
           <footer>
             <span>
-              <ShieldCheck size={15} /> Local manual tracker ·{" "}
+              <ShieldCheck size={15} />{" "}
+              {shared ? "Shared tracker" : "Local manual tracker"} ·{" "}
               {state.push.timezone}
             </span>
             <div>

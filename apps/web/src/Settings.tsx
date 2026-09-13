@@ -8,11 +8,15 @@ export function Settings({
   onSave,
 }: {
   state: TrackerState;
-  onSave: (state: TrackerState) => void;
+  onSave: (state: TrackerState) => Promise<void>;
 }) {
   const [error, setError] = useState("");
-  function submit(event: FormEvent<HTMLFormElement>) {
+  const [pending, setPending] = useState(false);
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending) return;
+    const form = event.currentTarget;
+    setPending(true);
     try {
       const data = new FormData(event.currentTarget);
       const get = (key: string) => String(data.get(key) ?? "").trim();
@@ -42,13 +46,13 @@ export function Settings({
           },
         ],
       });
-      onSave(next);
+      await onSave(next);
       setError("");
-      event.currentTarget.querySelector<HTMLInputElement>(
-        '[name="newPlayer"]',
-      )!.value = "";
+      form.querySelector<HTMLInputElement>('[name="newPlayer"]')!.value = "";
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save settings.");
+    } finally {
+      setPending(false);
     }
   }
   return (
@@ -151,17 +155,17 @@ export function Settings({
               {error}
             </p>
           )}
-          <button className="primary" type="submit">
+          <button className="primary" type="submit" disabled={pending}>
             Save settings
           </button>
         </form>
       </section>
       <section className="panel">
         <p className="eyebrow">YOUR DATA</p>
-        <h2>Local, with an exit door</h2>
+        <h2>Your backups and history</h2>
         <p>
-          This version saves in this browser. It does not sync between your
-          phone and Gaurav’s phone yet.
+          Shared trackers save online. Personal browser trackers and demo data
+          stay on this device. Check the storage label before recording matches.
         </p>
         <p>
           Use <strong>Export backup</strong> regularly. The JSON backup includes
@@ -169,8 +173,9 @@ export function Settings({
           exports match rows for spreadsheets.
         </p>
         <p>
-          Clearing browser storage or changing browsers can remove access to
-          these records. Restore a JSON backup to recover them.
+          Export before restoring a backup: restore replaces the selected
+          tracker's records. Refresh a shared tracker to see your teammate's
+          latest saves.
         </p>
         <hr />
         <h3>Recorded corrections</h3>

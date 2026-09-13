@@ -9,3 +9,5 @@ collector/fixtures/*
 !collector/fixtures/sample-manifest.example.json
 research-private/
 *.log
+.wrangler/
+.dev.vars*

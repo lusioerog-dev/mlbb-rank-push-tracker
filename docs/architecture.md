@@ -1,5 +1,7 @@
 # Architecture decisions — Phase 0A
 
+**Update 2026-09-13:** The user authorized connecting the manual tracker to a shared backend. [Backend design](backend.md) describes the Worker, Auth, versioned PostgreSQL snapshots, transactional concurrency and deployment requirements. This authorization covers manual-data storage; FightHistory parsing is still deferred.
+
 **Update 2026-09-12:** The user approved a local manual-entry MVP while FightHistory research is deferred. See [manual MVP](manual-mvp.md) for the implemented architecture and scope. The original phase gate below continues to apply to production FightHistory parsing/schema, not the newly authorized manual UI. No binary fields have been verified.
 
 ## Scope and phase gate

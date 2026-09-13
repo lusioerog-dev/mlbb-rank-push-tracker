@@ -2,6 +2,8 @@
 
 Live website: [Push Together](https://mlbb-rank-push-tracker.pages.dev/). Hosted on Cloudflare Pages; data remains local to each browser and does not yet sync between players or devices.
 
+Shared-backend code is now included: Supabase sign-in, private workspaces, teammate invitations, Cloudflare API validation and PostgreSQL revision/audit storage. It remains inactive until the database, Worker secrets and public connection configuration are deployed. See [backend setup and verification](docs/backend.md).
+
 A shared-account rank tracker for Rupesh and Gaurav, with player entities that can be renamed or extended. The **local manual-entry MVP** supports recording matches, reviewing account stars, comparing players, hero performance, and data export/restore.
 
 ## Run locally

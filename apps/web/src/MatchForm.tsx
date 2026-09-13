@@ -13,19 +13,22 @@ export function MatchForm({
 }: {
   state: TrackerState;
   match: Match | null;
-  onSave: (next: TrackerState) => void;
+  onSave: (next: TrackerState) => Promise<void>;
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
   const [mode, setMode] = useState<Match["mode"]>(match?.mode ?? "ranked");
   useEffect(() => {
     const el = dialog.current!;
     el.showModal();
     return () => el.close();
   }, []);
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending) return;
+    setPending(true);
     try {
       const form = new FormData(event.currentTarget);
       const text = (key: string) => String(form.get(key) ?? "").trim();
@@ -71,10 +74,12 @@ export function MatchForm({
         },
         text("correction"),
       );
-      onSave(result);
+      await onSave(result);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save this match.");
+    } finally {
+      setPending(false);
     }
   }
   const numeric = (
@@ -278,7 +283,7 @@ export function MatchForm({
           <button type="button" onClick={onClose}>
             Cancel
           </button>
-          <button className="primary" type="submit">
+          <button className="primary" type="submit" disabled={pending}>
             {match ? "Save correction" : "Save match"}
           </button>
         </div>

@@ -1,0 +1,6 @@
+{
+  "name": "mlbb-tracker-api",
+  "main": "apps/api/index.ts",
+  "compatibility_date": "2026-09-13",
+  "vars": { "ALLOWED_ORIGIN": "https://mlbb-rank-push-tracker.pages.dev" },
+}
