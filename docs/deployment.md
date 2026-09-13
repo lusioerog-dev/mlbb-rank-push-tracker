@@ -21,4 +21,4 @@ The `_headers` file adds basic browser security headers. Only application assets
 
 Official references checked 2026-09-12: [Direct Upload](https://developers.cloudflare.com/pages/get-started/direct-upload/), [Build configuration](https://developers.cloudflare.com/pages/configuration/build-configuration/).
 
-Add the verified production URL here after the first successful deployment.
+Production: https://mlbb-rank-push-tracker.pages.dev/ — deployed with direct upload and verified on 2026-09-13. The live dashboard loaded the four seeded matches and shared account total of 117 stars.

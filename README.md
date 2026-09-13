@@ -1,5 +1,7 @@
 # MLBB Rank Push Tracker
 
+Live website: [Push Together](https://mlbb-rank-push-tracker.pages.dev/). Hosted on Cloudflare Pages; data remains local to each browser and does not yet sync between players or devices.
+
 A shared-account rank tracker for Rupesh and Gaurav, with player entities that can be renamed or extended. The **local manual-entry MVP** supports recording matches, reviewing account stars, comparing players, hero performance, and data export/restore.
 
 ## Run locally
@@ -60,7 +62,7 @@ See [architecture](docs/architecture.md), [manual MVP design](docs/manual-mvp.md
 
 ## Cloud and environment configuration
 
-`.env.example` lists future server-only values. The local MVP does not need or read them. Never expose a Supabase service-role key using a `VITE_` variable. There is no Supabase setup or Cloudflare deployment to run yet. Planned hosted stack remains Cloudflare Pages + Worker + Supabase PostgreSQL, with local/development/production isolation and tracked migrations. No Azure resources are used. Check current free-tier limits before deployment.
+`.env.example` lists future server-only values. The manual MVP does not need or read them. Never expose a Supabase service-role key using a `VITE_` variable. The frontend is deployed on Cloudflare Pages using direct upload; Git pushes do not automatically publish website updates. See [deployment instructions](docs/deployment.md). Worker API and Supabase PostgreSQL integration remain planned, with local/development/production isolation and tracked migrations. No Azure resources are used.
 
 ## Troubleshooting
 
