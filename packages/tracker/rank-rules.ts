@@ -54,6 +54,43 @@ export interface RankPosition {
   division: number | null;
   stars: number;
 }
+export const rankPositionSchema = z
+  .object({
+    tier: z.enum(rankTiers),
+    division: z.number().int().min(1).max(5).nullable(),
+    stars: z.number().int().min(0).max(1000000),
+    rulesVersion: z.literal(RANK_RULES.version),
+  })
+  .strict()
+  .superRefine((rank, ctx) => {
+    if (
+      rank.tier === "Mythic"
+        ? rank.division !== null
+        : rank.division === null ||
+          rank.division > RANK_RULES.divisions[rank.tier].count ||
+          rank.stars > RANK_RULES.divisions[rank.tier].stars
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "Choose a valid rank, division and star count.",
+      });
+  });
+export type ConfirmedRank = z.infer<typeof rankPositionSchema>;
+
+export function rankOrder(position: RankPosition) {
+  let order = 0;
+  for (const tier of rankTiers) {
+    if (tier === "Mythic")
+      return position.tier === "Mythic" ? order + position.stars : order;
+    const rule = RANK_RULES.divisions[tier];
+    if (tier === position.tier)
+      return (
+        order + (rule.count - position.division!) * rule.stars + position.stars
+      );
+    order += rule.count * rule.stars;
+  }
+  return order;
+}
 const roman = ["", "I", "II", "III", "IV", "V"];
 export function rankLabel(rank: RankPosition) {
   if (rank.tier === "Mythic")

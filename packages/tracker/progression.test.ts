@@ -7,6 +7,7 @@ import {
   deleteMatch,
   formatPlaytime,
   playerContributions,
+  rankTargetProgress,
   saveMatch,
   stateSchema,
   stats,
@@ -144,10 +145,88 @@ test("unknown placement is not invented; confirmed Mythic checkpoint resumes ran
   };
   s.matches = [match("1", 1)];
   assert.equal(currentRank(s).needsRankConfirmation, true);
+  assert.equal(currentRank(s).placementStatus, "pending");
   s.matches.push({ ...match("2", 10), mythicCheckpoint: 10 });
   assert.equal(currentRank(s).rankStars, 10);
+  assert.equal(currentRank(s).placementStatus, "confirmed");
   s.matches.push(match("3", 1));
   assert.equal(currentRank(s).rankStars, 11);
+});
+test("confirmed rank checkpoints repair gaps and retain explicit placement state", () => {
+  const s = state(5);
+  s.push.startingRank = {
+    tier: "Legend",
+    division: 1,
+    rulesVersion: RANK_RULES.version,
+  };
+  s.matches = [match("1", 1), match("2", 1)];
+  assert.equal(currentRank(s).placementStatus, "pending");
+  assert.equal(currentRank(s).position, null);
+  s.matches.push({
+    ...match("3", null),
+    rankCheckpoint: {
+      kind: "placement",
+      position: {
+        tier: "Mythic",
+        division: null,
+        stars: 12,
+        rulesVersion: RANK_RULES.version,
+      },
+      confirmedAt: "2026-09-13T03:05:00Z",
+      reason: "Placement result screen",
+    },
+  });
+  assert.equal(currentRank(s).rankStars, 12);
+  assert.equal(currentRank(s).placementStatus, "confirmed");
+  s.matches.push(match("4", 1));
+  assert.equal(currentRank(s).rankStars, 13);
+  const corrected = saveMatch(
+    s,
+    {
+      ...s.matches[2]!,
+      rankCheckpoint: {
+        ...s.matches[2]!.rankCheckpoint!,
+        kind: "correction",
+        position: {
+          ...s.matches[2]!.rankCheckpoint!.position,
+          stars: 20,
+        },
+        reason: "Corrected from a clearer rank screen",
+      },
+    },
+    "Correct confirmed rank",
+  );
+  assert.equal(currentRank(corrected).rankStars, 21);
+  assert.equal(
+    (corrected.audit.at(-1)!.before as Match).rankCheckpoint!.position.stars,
+    12,
+  );
+});
+test("rank-aware targets compare tier, division and stars", () => {
+  const s = state(100);
+  s.push.targetRank = {
+    tier: "Mythic",
+    division: null,
+    stars: 105,
+    rulesVersion: RANK_RULES.version,
+  };
+  s.matches = [match("1", 1), match("2", 1), match("3", 1)];
+  assert.deepEqual(rankTargetProgress(s), {
+    target: s.push.targetRank,
+    current: currentRank(s).position,
+    remaining: 2,
+    complete: false,
+    percent: 60,
+  });
+  assert.throws(() =>
+    stateSchema.parse({
+      ...s,
+      push: {
+        ...s.push,
+        targetRank: { ...s.push.targetRank!, stars: 99 },
+      },
+    }),
+  );
 });
 test("nonranked matches affect playtime but not ranked stars, graph, or rank", () => {
   const s = state();

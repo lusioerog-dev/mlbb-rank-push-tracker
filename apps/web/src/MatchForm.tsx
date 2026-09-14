@@ -10,6 +10,11 @@ import {
   recordHeroObservation,
 } from "../../../packages/tracker/model";
 import type { Match, TrackerState } from "../../../packages/tracker/model";
+import {
+  RANK_RULES,
+  rankTiers,
+  type StartingRank,
+} from "../../../packages/tracker/rank-rules";
 import { localInput, toInstant } from "../../../packages/tracker/time";
 
 export function MatchForm({
@@ -28,6 +33,16 @@ export function MatchForm({
   const [pending, setPending] = useState(false);
   const mode: Match["mode"] = match?.mode ?? "ranked";
   const currentHero = state.heroes.find((hero) => hero.id === match?.heroId);
+  const rank = currentRank(state);
+  const [checkpointTier, setCheckpointTier] = useState<
+    StartingRank["tier"] | ""
+  >(
+    match?.rankCheckpoint?.position.tier ??
+      (match?.mythicCheckpoint !== undefined ||
+      rank.placementStatus === "pending"
+        ? "Mythic"
+        : ""),
+  );
   useEffect(() => {
     const el = dialog.current!;
     el.showModal();
@@ -76,8 +91,23 @@ export function MatchForm({
               ? (number("delta") ??
                 (match?.starDelta === null ? null : undefined))
               : null,
-          ...(mode === "ranked" && number("checkpoint") !== null
-            ? { mythicCheckpoint: number("checkpoint") }
+          ...(mode === "ranked" && checkpointTier
+            ? {
+                rankCheckpoint: {
+                  kind: text("checkpointKind"),
+                  position: {
+                    tier: checkpointTier,
+                    division:
+                      checkpointTier === "Mythic"
+                        ? null
+                        : Number(text("checkpointDivision")),
+                    stars: Number(text("checkpointStars")),
+                    rulesVersion: RANK_RULES.version,
+                  },
+                  confirmedAt: now,
+                  reason: text("checkpointReason"),
+                },
+              }
             : {}),
           rankTier: match?.rankTier ?? "",
           source: match?.source ?? "manual",
@@ -270,25 +300,111 @@ export function MatchForm({
                 placeholder="e.g. +1, -1 or 0"
               />
             </label>
-            {(currentRank(state).needsRankConfirmation ||
-              match?.mythicCheckpoint !== undefined) && (
-              <label>
-                Confirmed Mythic stars after placement (optional)
-                <input
-                  name="checkpoint"
-                  type="number"
-                  min="0"
-                  max="1000000"
-                  step="1"
-                  defaultValue={match?.mythicCheckpoint ?? ""}
-                  placeholder="Use the game's final placement result"
-                />
-              </label>
-            )}
             <p className="muted small">
               Enter the actual star change, including bonuses or protection. Use
               0 for a protected loss. Leave blank if unconfirmed.
             </p>
+            <details open={rank.placementStatus === "pending"}>
+              <summary>Confirmed rank after this match (optional)</summary>
+              <p className="muted small">
+                Use this after placement or when the game confirms the account
+                rank. It resumes calculations after an unknown gap.
+              </p>
+              <div className="form-grid">
+                <label>
+                  Confirmed tier
+                  <select
+                    name="checkpointTier"
+                    value={checkpointTier}
+                    onChange={(event) =>
+                      setCheckpointTier(
+                        event.target.value as StartingRank["tier"] | "",
+                      )
+                    }
+                  >
+                    <option value="">No checkpoint</option>
+                    {rankTiers.map((tier) => (
+                      <option key={tier} value={tier}>
+                        {tier}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {checkpointTier && checkpointTier !== "Mythic" && (
+                  <label>
+                    Confirmed division
+                    <select
+                      name="checkpointDivision"
+                      defaultValue={
+                        match?.rankCheckpoint?.position.tier === checkpointTier
+                          ? (match.rankCheckpoint.position.division ?? 1)
+                          : 1
+                      }
+                    >
+                      {Array.from(
+                        {
+                          length: RANK_RULES.divisions[checkpointTier].count,
+                        },
+                        (_, index) => index + 1,
+                      ).map((division) => (
+                        <option key={division} value={division}>
+                          {["", "I", "II", "III", "IV", "V"][division]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {checkpointTier && (
+                  <>
+                    <label>
+                      Confirmed stars
+                      <input
+                        name="checkpointStars"
+                        type="number"
+                        min="0"
+                        max={
+                          checkpointTier === "Mythic"
+                            ? 1000000
+                            : RANK_RULES.divisions[checkpointTier].stars
+                        }
+                        required
+                        defaultValue={
+                          match?.rankCheckpoint?.position.stars ??
+                          match?.mythicCheckpoint ??
+                          ""
+                        }
+                      />
+                    </label>
+                    <label>
+                      Checkpoint type
+                      <select
+                        name="checkpointKind"
+                        defaultValue={
+                          match?.rankCheckpoint?.kind ??
+                          (rank.placementStatus === "pending"
+                            ? "placement"
+                            : "observation")
+                        }
+                      >
+                        <option value="placement">Placement result</option>
+                        <option value="observation">Observed in game</option>
+                        <option value="correction">Rank correction</option>
+                      </select>
+                    </label>
+                    <label>
+                      Why this rank is confirmed
+                      <input
+                        name="checkpointReason"
+                        required
+                        maxLength={300}
+                        defaultValue={match?.rankCheckpoint?.reason ?? ""}
+                        placeholder="e.g. placement result screen"
+                      />
+                    </label>
+                  </>
+                )}
+              </div>
+            </details>
             <details>
               <summary>Original star observations (optional)</summary>
               <div className="form-grid">
@@ -303,9 +419,11 @@ export function MatchForm({
             <p className="muted small">
               {!state.push.startingRank
                 ? "Select the season starting rank once in Settings to enable rank labels."
-                : currentRank(state).needsRankConfirmation
-                  ? "Rank needs confirmation: check placement results or missing star changes before relying on a rank estimate."
-                  : `Current account rank: ${currentRank(state).tier}.`}
+                : rank.placementStatus === "pending"
+                  ? "Placement is pending. Add the confirmed result when the game shows it."
+                  : rank.needsRankConfirmation
+                    ? "Rank needs confirmation after an unknown star change."
+                    : `Current account rank: ${rank.tier}.`}
             </p>
           </fieldset>
         )}

@@ -98,7 +98,8 @@ Checkpoint A is complete; see [its results and limitations](backup-rehearsal.md)
 Checkpoint B is complete: [B1](checkpoint-b1.md) introduced and rehearsed the
 additive read model, and [B2](checkpoint-b2.md) completed the transactional save
 path and production cutover. Checkpoint C is complete locally; see
-[its report](checkpoint-c.md). The next checkpoint is D: rank checkpoints,
-placement and rank-aware targets.
+[its report](checkpoint-c.md). Checkpoint D is also complete locally; see
+[its report](checkpoint-d.md). The next checkpoint is E: focused UI and
+performance improvements.
 Official portraits and extra analytics are optional polish; do not
 spend the remaining usage on speculative importer work or a full redesign.

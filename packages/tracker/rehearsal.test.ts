@@ -148,6 +148,15 @@ test("additive v2 schema backfills stable season and match records without chang
         "utf8",
       ),
     );
+    await db.exec(
+      await readFile(
+        new URL(
+          "../../supabase/migrations/202609140005_rank_checkpoints.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
     await db.exec("set role service_role");
     assert.deepEqual(
       (
@@ -196,9 +205,29 @@ test("additive v2 schema backfills stable season and match records without chang
               heroId: identified.id,
               heroObservation: { name: "Observed alias", gameId: "00077" },
               playedPosition: "jungle" as const,
+              rankCheckpoint: {
+                kind: "observation" as const,
+                position: {
+                  tier: "Epic" as const,
+                  division: 2,
+                  stars: 2,
+                  rulesVersion: "mlbb-stars-2026-09" as const,
+                },
+                confirmedAt: "2026-09-14T12:05:00Z",
+                reason: "Rank screen checked",
+              },
             },
       ),
-      push: { ...canonical.push, targetStars: 125 },
+      push: {
+        ...canonical.push,
+        targetStars: null,
+        targetRank: {
+          tier: "Epic" as const,
+          division: 1,
+          stars: 3,
+          rulesVersion: "mlbb-stars-2026-09" as const,
+        },
+      },
     };
     const saved = (
       await db.query<{ tracker_save_v2: unknown }>(
@@ -219,6 +248,30 @@ test("additive v2 schema backfills stable season and match records without chang
           played_position: "jungle",
           observed_hero_name: "Observed alias",
           observed_hero_game_id: "00077",
+        },
+      ],
+    );
+    assert.deepEqual(
+      (
+        await db.query(
+          "select tier, division, stars, source from public.tracker_rank_targets",
+        )
+      ).rows,
+      [{ tier: "Epic", division: 1, stars: 3, source: "explicit" }],
+    );
+    assert.deepEqual(
+      (
+        await db.query(
+          "select kind, tier, division, stars, reason from public.tracker_rank_checkpoints",
+        )
+      ).rows,
+      [
+        {
+          kind: "observation",
+          tier: "Epic",
+          division: 2,
+          stars: 2,
+          reason: "Rank screen checked",
         },
       ],
     );

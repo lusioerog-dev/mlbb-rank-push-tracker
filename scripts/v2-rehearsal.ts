@@ -90,6 +90,15 @@ try {
       "utf8",
     ),
   );
+  await db.exec(
+    await readFile(
+      new URL(
+        "../supabase/migrations/202609140005_rank_checkpoints.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
   await db.exec("set role service_role");
   const results = [];
   for (const workspace of backup.workspaces) {
@@ -102,6 +111,12 @@ try {
     ).rows[0]!.tracker_load_v2;
     const original = readState(workspace.state),
       restored = readState(loaded);
+    const normalizedRankFacts = (
+      await db.query<{ targets: number; checkpoints: number }>(
+        "select (select count(*)::int from public.tracker_rank_targets where workspace_id=$1) targets, (select count(*)::int from public.tracker_rank_checkpoints where workspace_id=$1) checkpoints",
+        [workspace.id],
+      )
+    ).rows[0]!;
     assert.deepEqual(
       restored,
       original,
@@ -170,6 +185,7 @@ try {
     assert.equal(rolloverCounts.matches, original.matches.length);
     results.push({
       backfill,
+      normalizedRankFacts,
       rank: currentRank(restored),
       stats: stats(restored.matches),
       normalSaveRevision: saved.revision,

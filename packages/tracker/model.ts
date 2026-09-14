@@ -2,7 +2,9 @@ import { z } from "zod";
 import { playerName } from "./players";
 import {
   advanceRank,
+  rankOrder,
   rankLabel,
+  rankPositionSchema,
   startingRankSchema,
   RANK_RULES,
 } from "./rank-rules";
@@ -38,6 +40,14 @@ const heroObservationSchema = z
   .refine((value) => value.name !== null || value.gameId !== null, {
     message: "A hero observation needs a name or verified game ID.",
   });
+export const rankCheckpointSchema = z
+  .object({
+    kind: z.enum(["placement", "observation", "correction"]),
+    position: rankPositionSchema,
+    confirmedAt: instant,
+    reason: z.string().trim().min(1).max(300),
+  })
+  .strict();
 export const matchSchema = z
   .object({
     id,
@@ -57,6 +67,7 @@ export const matchSchema = z
     starsAfter: count.nullable(),
     starDelta: z.number().int().min(-10000).max(10000).nullable().optional(),
     mythicCheckpoint: count.optional(),
+    rankCheckpoint: rankCheckpointSchema.optional(),
     rankTier: z.string().trim().max(80),
     source: z.enum(["manual", "screenshot_review"]),
     notes: z.string().max(2000),
@@ -70,7 +81,8 @@ export const matchSchema = z
       (m.starsBefore !== null ||
         m.starsAfter !== null ||
         m.starDelta != null ||
-        m.mythicCheckpoint !== undefined)
+        m.mythicCheckpoint !== undefined ||
+        m.rankCheckpoint !== undefined)
     )
       ctx.addIssue({
         code: "custom",
@@ -101,6 +113,7 @@ export const stateSchema = z
         startingStars: count,
         startingRank: startingRankSchema.optional(),
         targetStars: count.nullable(),
+        targetRank: rankPositionSchema.nullable().optional(),
       })
       .strict(),
     matches: z.array(matchSchema).max(20000),
@@ -163,6 +176,23 @@ export const stateSchema = z
         message:
           "Multiple matches have the same time. Resolve duplicate records before import.",
       });
+    }
+    if (!state.push.startingRank && state.push.targetRank)
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "Choose the season starting rank before setting a rank target.",
+      });
+    if (state.push.startingRank && state.push.targetRank) {
+      const start = {
+        ...state.push.startingRank,
+        stars: state.push.startingStars,
+      };
+      if (rankOrder(state.push.targetRank) <= rankOrder(start))
+        ctx.addIssue({
+          code: "custom",
+          message: "The rank target must be above the season starting rank.",
+        });
     }
     if (
       state.push.startingRank &&
@@ -245,9 +275,52 @@ export function currentRank(state: TrackerState) {
     stars: latest?.stars ?? known?.stars ?? state.push.startingStars,
     rankStars: position?.stars ?? null,
     tier: position ? rankLabel(position) : "",
+    position,
     at: latest?.playedAt ?? null,
     incomplete: latest?.stars === null,
     needsRankConfirmation: Boolean(state.push.startingRank && !position),
+    placementStatus: latest?.placementPending
+      ? ("pending" as const)
+      : state.matches.some(
+            (match) =>
+              match.rankCheckpoint?.kind === "placement" ||
+              match.mythicCheckpoint !== undefined,
+          )
+        ? ("confirmed" as const)
+        : ("not_required" as const),
+  };
+}
+
+export function resolvedRankTarget(state: TrackerState) {
+  if (state.push.targetRank) return state.push.targetRank;
+  return state.push.startingRank?.tier === "Mythic" &&
+    state.push.targetStars !== null
+    ? {
+        tier: "Mythic" as const,
+        division: null,
+        stars: state.push.targetStars,
+        rulesVersion: RANK_RULES.version,
+      }
+    : null;
+}
+
+export function rankTargetProgress(state: TrackerState) {
+  const target = resolvedRankTarget(state);
+  const current = currentRank(state).position;
+  if (!target || !state.push.startingRank || !current) return null;
+  const start = rankOrder({
+    ...state.push.startingRank,
+    stars: state.push.startingStars,
+  });
+  const now = rankOrder(current);
+  const end = rankOrder(target);
+  if (end <= start) return null;
+  return {
+    target,
+    current,
+    remaining: Math.max(0, end - now),
+    complete: now >= end,
+    percent: Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100)),
   };
 }
 
@@ -256,6 +329,7 @@ export function accountProgression(state: TrackerState) {
   let rank: RankPosition | null = state.push.startingRank
     ? { ...state.push.startingRank, stars }
     : null;
+  let placementPending = false;
   const baseline = {
     label: "Start",
     playedAt: null as string | null,
@@ -263,6 +337,7 @@ export function accountProgression(state: TrackerState) {
     startingStars: stars as number | null,
     delta: 0 as number | null,
     rank,
+    placementPending,
     player: "Account baseline",
   };
   return [
@@ -271,12 +346,28 @@ export function accountProgression(state: TrackerState) {
       .filter((m) => m.mode === "ranked")
       .map((m, i) => {
         const before = stars;
+        const beforeRank = rank;
         const delta = starChange(m);
         stars = stars === null || delta === null ? null : stars + delta;
         rank =
           rank === null || delta === null ? null : advanceRank(rank, delta);
-        if (m.mythicCheckpoint !== undefined)
+        placementPending =
+          placementPending ||
+          Boolean(
+            beforeRank?.tier === "Legend" &&
+            beforeRank.division === 1 &&
+            delta !== null &&
+            beforeRank.stars + delta > RANK_RULES.divisions.Legend.stars &&
+            rank === null,
+          );
+        if (m.rankCheckpoint) {
+          rank = m.rankCheckpoint.position;
+          placementPending = false;
+          if (rank.tier === "Mythic") stars = rank.stars;
+        } else if (m.mythicCheckpoint !== undefined) {
           rank = { tier: "Mythic", division: null, stars: m.mythicCheckpoint };
+          placementPending = false;
+        }
         return {
           label: String(i + 1),
           playedAt: m.playedAt,
@@ -284,6 +375,7 @@ export function accountProgression(state: TrackerState) {
           startingStars: before,
           delta,
           rank,
+          placementPending,
           player: playerName(m.playerId),
         };
       }),

@@ -42,7 +42,10 @@ import {
   dailyProgression,
   playerContributions,
   formatPlaytime,
+  rankTargetProgress,
+  resolvedRankTarget,
 } from "../../../packages/tracker/model";
+import { rankLabel } from "../../../packages/tracker/rank-rules";
 import {
   exportCsv,
   loadState,
@@ -243,19 +246,9 @@ export function App({ remote }: { remote?: RemoteStore }) {
         ? filtered
         : filtered.slice(-Number(windowSize));
   const summary = stats(matches);
-  const target = state.push.targetStars;
-  const progress =
-    !rank.incomplete && target !== null && target > state.push.startingStars
-      ? Math.min(
-          100,
-          Math.max(
-            0,
-            ((rank.stars - state.push.startingStars) /
-              (target - state.push.startingStars)) *
-              100,
-          ),
-        )
-      : null;
+  const target = resolvedRankTarget(state);
+  const targetProgress = rankTargetProgress(state);
+  const progress = targetProgress?.percent ?? null;
   const chart = [
     ...(graphMode === "day"
       ? dailyProgression(state)
@@ -548,6 +541,12 @@ export function App({ remote }: { remote?: RemoteStore }) {
                       {rank.incomplete ? "unknown" : rank.stars}
                     </p>
                   )}
+                  {rank.placementStatus === "pending" && (
+                    <p className="small">
+                      Placement pending · record the confirmed result after a
+                      match before relying on this rank.
+                    </p>
+                  )}
                   <div className="progress-track">
                     <div style={{ width: `${progress ?? 0}%` }} />
                   </div>
@@ -555,7 +554,7 @@ export function App({ remote }: { remote?: RemoteStore }) {
                     <span>
                       {target === null
                         ? "Choose your next milestone"
-                        : `Target balance: ${target} stars`}
+                        : `Target: ${rankLabel(target)} · ${target.stars} stars`}
                     </span>
                     <button
                       onClick={() => setPage("settings")}
@@ -565,6 +564,13 @@ export function App({ remote }: { remote?: RemoteStore }) {
                       <ArrowUpRight size={14} />
                     </button>
                   </div>
+                  {targetProgress && (
+                    <small>
+                      {targetProgress.complete
+                        ? "Rank target reached"
+                        : `${targetProgress.remaining} rank stars remaining`}
+                    </small>
+                  )}
                   <small>
                     Last recorded:{" "}
                     {rank.at ? date(rank.at) : "starting baseline"}

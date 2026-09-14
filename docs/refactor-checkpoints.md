@@ -5,9 +5,10 @@ Its checkpoints A–F replace the deferred order below; the older list remains a
 scope history. Checkpoint A is complete: [backup and rehearsal evidence](backup-rehearsal.md).
 Checkpoint B is complete: [B1 added the normalized read model](checkpoint-b1.md)
 and [B2 completed transactional saves and the production cutover](checkpoint-b2.md).
-[Checkpoint C](checkpoint-c.md) is complete locally. The next checkpoint is D:
-rank checkpoints, placement and rank-aware targets. Per the updated release
-plan, checkpoints C–F remain local and deploy together after final QA and review.
+[Checkpoint C](checkpoint-c.md) and [checkpoint D](checkpoint-d.md) are complete
+locally. The next checkpoint is E: focused UI and performance improvements. Per
+the updated release plan, checkpoints C–F remain local and deploy together after
+final QA and review.
 
 ## Phase protocol
 

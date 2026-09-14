@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { stateSchema } from "../../../packages/tracker/model";
+import {
+  resolvedRankTarget,
+  stateSchema,
+} from "../../../packages/tracker/model";
 import type { TrackerState } from "../../../packages/tracker/model";
 import {
   archivedSeasons,
@@ -29,6 +32,10 @@ export function Settings({
   const [startTier, setStartTier] = useState<StartingRank["tier"] | "">(
     state.push.startingRank?.tier ?? "",
   );
+  const existingTarget = resolvedRankTarget(state);
+  const [targetTier, setTargetTier] = useState<StartingRank["tier"] | "">(
+    existingTarget?.tier ?? "",
+  );
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
@@ -56,7 +63,23 @@ export function Settings({
         startingStars: baselineLocked
           ? state.push.startingStars
           : Number(get("startingStars")),
-        targetStars: get("targetStars") ? Number(get("targetStars")) : null,
+        targetStars:
+          targetTier === "Mythic"
+            ? Number(get("targetRankStars"))
+            : targetTier
+              ? null
+              : state.push.targetRank === undefined
+                ? state.push.targetStars
+                : null,
+        targetRank: targetTier
+          ? {
+              tier: targetTier,
+              division:
+                targetTier === "Mythic" ? null : Number(get("targetDivision")),
+              stars: Number(get("targetRankStars")),
+              rulesVersion: RANK_RULES.version,
+            }
+          : null,
       };
       if (correctBaseline && !newSeason && !get("reason"))
         throw new Error("Give a reason for correcting the starting rank.");
@@ -143,16 +166,67 @@ export function Settings({
               />
             </label>
             <label>
-              Target season star balance (optional)
-              <input
-                name="targetStars"
-                type="number"
-                min="0"
-                max="1000000"
-                defaultValue={state.push.targetStars ?? ""}
-                placeholder="Set your own target"
-              />
+              Target rank <span className="muted">optional</span>
+              <select
+                value={targetTier}
+                onChange={(event) =>
+                  setTargetTier(event.target.value as StartingRank["tier"] | "")
+                }
+              >
+                <option value="">No rank target</option>
+                {rankTiers.map((tier) => (
+                  <option key={tier} value={tier}>
+                    {tier}
+                  </option>
+                ))}
+              </select>
             </label>
+            {targetTier && targetTier !== "Mythic" && (
+              <label>
+                Target division
+                <select
+                  key={targetTier}
+                  name="targetDivision"
+                  defaultValue={
+                    existingTarget?.tier === targetTier
+                      ? (existingTarget.division ?? 1)
+                      : 1
+                  }
+                >
+                  {Array.from(
+                    { length: RANK_RULES.divisions[targetTier].count },
+                    (_, index) => index + 1,
+                  ).map((division) => (
+                    <option key={division} value={division}>
+                      {["", "I", "II", "III", "IV", "V"][division]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {targetTier && (
+              <label>
+                {targetTier === "Mythic"
+                  ? "Target Mythic stars"
+                  : "Target division stars"}
+                <input
+                  name="targetRankStars"
+                  type="number"
+                  min="0"
+                  max={
+                    targetTier === "Mythic"
+                      ? 1000000
+                      : RANK_RULES.divisions[targetTier].stars
+                  }
+                  required
+                  defaultValue={
+                    existingTarget?.tier === targetTier
+                      ? existingTarget.stars
+                      : 0
+                  }
+                />
+              </label>
+            )}
             <label>
               Season starting rank
               <select
