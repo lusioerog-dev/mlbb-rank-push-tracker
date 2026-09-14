@@ -3,7 +3,8 @@
 Further development follows the [short architecture plan](architecture-plan.md).
 Its checkpoints A–F replace the deferred order below; the older list remains as
 scope history. Checkpoint A is complete: [backup and rehearsal evidence](backup-rehearsal.md).
-The next checkpoint is B: explicit seasons/matches and the versioned API.
+Checkpoint B1 is complete: [additive schema and read API](checkpoint-b1.md). The
+next checkpoint is B2: transactional saves, fresh backup and production cutover.
 
 ## Phase protocol
 

@@ -110,7 +110,12 @@ export async function handle(
     const wid = configured.data;
     // Retain fixed-workspace read/save URLs for older deployed clients only.
     const legacyPath = `/workspaces/${wid}`;
-    if (path !== "/tracker" && path !== legacyPath && path !== "/workspaces")
+    if (
+      path !== "/tracker" &&
+      path !== "/v2/tracker" &&
+      path !== legacyPath &&
+      path !== "/workspaces"
+    )
       throw new HttpError(404, "Not found.");
     if (request.method !== "GET" && request.method !== "PUT")
       throw new HttpError(405, "Method not allowed.");
@@ -157,6 +162,17 @@ export async function handle(
       throw new HttpError(403, "You do not have access to this tracker.");
     if (path === "/workspaces") {
       response = json([wid]);
+    } else if (path === "/v2/tracker" && request.method === "GET") {
+      response = json(
+        readState(
+          await db("rpc/tracker_load_v2", "POST", { actor: user.id, wid }),
+        ),
+      );
+    } else if (path === "/v2/tracker") {
+      throw new HttpError(
+        503,
+        "Version 2 storage is not writable until the production cutover.",
+      );
     } else if (request.method === "GET") {
       const rows = z
         .array(z.object({ state: z.unknown() }))

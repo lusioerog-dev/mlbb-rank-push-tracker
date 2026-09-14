@@ -93,6 +93,8 @@ Unknown values stay null rather than becoming zero or a guessed result.
 Each checkpoint includes its relevant tests, diff review, Git checkpoint and
 release notes. Ship independently when safe; stop before the next checkpoint.
 Checkpoint A is complete; see [its results and limitations](backup-rehearsal.md).
-Checkpoint B is next and requires a new `continue`.
+Checkpoint B1 defines and locally verifies the additive schema and read API; see
+[its report](checkpoint-b1.md). Checkpoint B2 is the transactional save and live
+cutover, and requires a new `continue`.
 Official portraits and extra analytics are optional polish; do not
 spend the remaining usage on speculative importer work or a full redesign.

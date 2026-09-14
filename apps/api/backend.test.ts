@@ -143,6 +143,41 @@ test("both existing members can read the same pinned push and unconfirmed users 
     Response.json({ id: owner, email_confirmed_at: null });
   assert.equal((await handle(req("/tracker"), env, unconfirmed)).status, 403);
 });
+test("versioned API reads canonical state and keeps writes disabled before cutover", async () => {
+  let loadCalls = 0;
+  const canonical = initialState();
+  const fetcher: typeof fetch = async (input, init) => {
+    const url = String(input);
+    if (url.endsWith("/auth/v1/user"))
+      return Response.json({
+        id: owner,
+        email_confirmed_at: "2026-09-13T00:00:00Z",
+      });
+    if (url.includes("tracker_members?"))
+      return Response.json([{ user_id: owner }]);
+    if (url.endsWith("/rpc/tracker_load_v2")) {
+      assert.deepEqual(JSON.parse(String(init?.body)), {
+        actor: owner,
+        wid: other,
+      });
+      loadCalls++;
+      return Response.json(canonical);
+    }
+    throw new Error("Unexpected request");
+  };
+  const loaded = await handle(req("/v2/tracker"), env, fetcher);
+  assert.equal(loaded.status, 200);
+  assert.deepEqual(await loaded.json(), canonical);
+  assert.equal(loadCalls, 1);
+  const blocked = await handle(
+    req("/v2/tracker", "PUT", canonical),
+    env,
+    fetcher,
+  );
+  assert.equal(blocked.status, 503);
+  assert.match((await blocked.json()).error, /not writable/);
+  assert.equal(loadCalls, 1);
+});
 test("API maps atomic save conflict to 409 and does not expose backend secrets", async () => {
   const fetcher: typeof fetch = async (input) => {
     const url = String(input);
