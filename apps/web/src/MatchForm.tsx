@@ -123,9 +123,7 @@ export function MatchForm({
     >
       <div className="dialog-heading">
         <div>
-          <p className="eyebrow">
-            {state.dataset === "demo" ? "DEMO TRACKER" : "SHARED ACCOUNT"}
-          </p>
+          <p className="eyebrow">SHARED ACCOUNT</p>
           <h2 id="match-form-title">
             {match ? "Edit match" : "Record a match"}
           </h2>

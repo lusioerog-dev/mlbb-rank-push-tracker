@@ -28,7 +28,7 @@ const memory = () => {
 };
 
 test("real screenshot seed has one shared account and only confirmed Gaurav matches", () => {
-  const real = stateSchema.parse(initialState("real"));
+  const real = stateSchema.parse(initialState());
   assert.equal(currentRank(real).stars, 117);
   assert.equal(stats(real.matches).net, 2);
   assert.equal(stats(real.matches).winRate, 75);
@@ -53,17 +53,17 @@ test("real screenshot seed has one shared account and only confirmed Gaurav matc
   );
 });
 test("zero-change loss is not minus one; unknown changes are not zero", () => {
-  const demo = initialState("demo");
-  assert.equal(starChange(demo.matches[3]!), 0);
-  assert.equal(stats(demo.matches).net, 0);
-  const unknown = { ...demo.matches[0]!, starsAfter: null };
+  const protectedLoss = { ...initialState().matches[0]!, starsAfter: 115 };
+  assert.equal(starChange(protectedLoss), 0);
+  assert.equal(stats([protectedLoss]).net, 0);
+  const unknown = { ...protectedLoss, starsAfter: null };
   assert.equal(starChange(unknown), null);
   assert.equal(stats([unknown]).net, null);
   assert.equal(stats([]).winRate, null);
   assert.equal(stats([{ ...unknown, result: "unknown" }]).winRate, null);
 });
 test("out-of-order imports do not overwrite latest rank; later unknown star state is visible", () => {
-  const state = initialState("real");
+  const state = initialState();
   state.matches.reverse();
   assert.equal(currentRank(state).stars, 117);
   state.matches.push({
@@ -76,7 +76,7 @@ test("out-of-order imports do not overwrite latest rank; later unknown star stat
   assert.equal(currentRank(state).incomplete, true);
 });
 test("corrections preserve originals and creation provenance; duplicate match times rejected", () => {
-  const state = initialState("real");
+  const state = initialState();
   const old = state.matches[0]!;
   assert.throws(() => saveMatch(state, { ...old, kills: 4 }), /correction/);
   const next = saveMatch(
@@ -95,7 +95,7 @@ test("corrections preserve originals and creation provenance; duplicate match ti
   );
 });
 test("runtime validation rejects malformed imports and broken references", () => {
-  const state = initialState("real");
+  const state = initialState();
   assert.throws(
     () =>
       saveMatch(
@@ -118,7 +118,7 @@ test("runtime validation rejects malformed imports and broken references", () =>
       matches: [{ ...state.matches[0], rankTier: "Tier B" }],
     }),
   );
-  assert.throws(() => stateSchema.parse({ ...state, version: 2 }));
+  assert.throws(() => stateSchema.parse({ ...state, version: 3 }));
   assert.throws(() =>
     stateSchema.parse({
       ...state,
@@ -144,21 +144,15 @@ test("runtime validation rejects malformed imports and broken references", () =>
     }),
   );
 });
-test("real/demo storage and imports stay isolated; backups roundtrip and stale writes fail", () => {
+test("backups roundtrip and stale writes fail without overwriting unreadable data", () => {
   const storage = memory();
-  const real = persistState(storage, initialState("real"), 0);
-  persistState(storage, initialState("demo"), 0);
-  assert.equal(loadState(storage, "real").matches.length, 4);
-  assert.equal(loadState(storage, "demo").matches.length, 7);
-  assert.deepEqual(parseBackup(JSON.stringify(real), "real"), real);
-  assert.throws(
-    () => parseBackup(JSON.stringify(initialState("demo")), "real"),
-    /matching/,
-  );
-  assert.throws(() => persistState(storage, real, 0), /Another tab/);
-  storage.setItem(storageKey("real"), "corrupt");
-  assert.throws(() => loadState(storage, "real"));
-  assert.equal(storage.getItem(storageKey("real")), "corrupt");
+  const saved = persistState(storage, initialState(), 0);
+  assert.equal(loadState(storage).matches.length, 4);
+  assert.deepEqual(parseBackup(JSON.stringify(saved)), saved);
+  assert.throws(() => persistState(storage, saved, 0), /Another tab/);
+  storage.setItem(storageKey, "corrupt");
+  assert.throws(() => loadState(storage));
+  assert.equal(storage.getItem(storageKey), "corrupt");
 });
 test("storage write failures surface instead of claiming success", () => {
   const storage = {
@@ -167,10 +161,10 @@ test("storage write failures surface instead of claiming success", () => {
       throw new Error("Quota exceeded");
     },
   };
-  assert.throws(() => persistState(storage, initialState("real"), 0), /Quota/);
+  assert.throws(() => persistState(storage, initialState(), 0), /Quota/);
 });
 test("hero statistics remain per-player and CSV escapes spreadsheet formulas", () => {
-  const state = initialState("real");
+  const state = initialState();
   state.heroes.push({ id: "hero1", name: "Confirmed hero" });
   state.matches[0] = { ...state.matches[0]!, heroId: "hero1" };
   state.players[1]!.name = '=HYPERLINK("example")';

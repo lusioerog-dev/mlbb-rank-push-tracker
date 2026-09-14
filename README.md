@@ -1,5 +1,7 @@
 # MLBB Rank Push Tracker
 
+Refactor checkpoint: **Phase 1a (Demo/Real removal)**. The application now opens one tracker state; demo mode is removed. Existing real-data backups remain readable. Shared workspace/invitation cleanup is Phase 1b and has not started. See [phase checkpoints and recovery notes](docs/refactor-checkpoints.md). This checkpoint has not been deployed.
+
 Live website: [Push Together](https://mlbb-rank-push-tracker.pages.dev/). Hosted on Cloudflare Pages with Supabase sign-in and a Cloudflare Worker for shared storage. Personal browser storage remains available separately.
 
 Shared-backend configuration is deployed: private workspaces, teammate invitations, API validation and PostgreSQL revision/audit storage. Sign in with an owner-provisioned account and create or join a shared tracker. See [backend setup and verification](docs/backend.md), [rank rules and season setup](docs/rank-rules.md), and [the feature change report](docs/2026-09-13-update.md).
@@ -34,16 +36,15 @@ The static dashboard build is in `dist/web`; collector compilation remains in `d
 3. Choose **Record match**, select who played, and enter the actual star change. A protected loss can have zero change. Before/after observations remain optional for compatibility; empty values stay unknown. Rank is derived without typing a rank for each match.
 4. Enter a hero name when known; it becomes a reusable hero entity. Screenshot hero names await user confirmation.
 5. Use the match row's edit button to correct a record. A reason is required; the original record is retained in correction history and JSON backups.
-6. Use the separate **Demo tracker** to practice. Its seven screenshot-based ranked matches have invented human assignments. They never count toward real contributions.
 
 Filters apply to match/player/hero statistics. The shared account card and progression chart always use all recorded ranked matches. Win rate is wins divided by wins + losses, excluding draws and unknown outcomes. Coverage labels explain missing stars/durations. Total net stars is unknown when any selected game lacks a change. Current rank means latest recorded account state, not a live reading from MLBB.
 
 ## Data and limitations
 
 - Browser storage is a temporary local adapter behind `StoragePort`. No database credentials, API, login, background sync or FightHistory decoding is implemented.
-- One active push per real/demo tracker in this version. Multi-push storage and cross-tier rank conversion are deferred. Numeric stars must be within the same tier; record tier transitions in notes with star fields blank.
+- One active push per stored snapshot in this version. Existing shared seasons remain separate workspaces until the season refactor. See the rank-rules documentation for supported transitions and placement limits.
 - The seed's 09/12 times come from screenshots. The 2026 year and Nepal UTC offset are contextual assumptions, stated in every seed note and editable. Screenshot capture times are not used as match times.
-- Seven paired ranked games from the ZIP are included in demo. The unpaired victory and history-only Classic loss are excluded because their evidence is incomplete. The private review retains them.
+- The private screenshot review remains preserved. Its old demo assignments are no longer included in the application.
 - Add guards reject same-time duplicate entries for this one-account workflow. JSON restore is replacement, not merge, so repeat restore cannot accumulate duplicates. Cross-source battle identity is still a Phase 0 research task.
 - Use one editing tab at a time. Revision checks catch stale saves, but browser storage has no database transaction guarantees. Local corrections have no authenticated editor identity.
 - JSON backups retain the whole tracker, including audit records; CSV exports match rows only and escapes formula-leading strings. Raw screenshots remain Git-ignored in `research-private/`.
@@ -72,7 +73,7 @@ See [architecture](docs/architecture.md), [manual MVP design](docs/manual-mvp.md
 - Port 5173 busy: stop the other process you own; do not silently change ports because browser storage is origin-specific.
 - Save failure: keep the form open, free browser storage or reload after checking another tab, then retry. Failed writes do not show a success message.
 - Unreadable saved data is not silently reset. Use the recovery download, preserve it, and ask for repair.
-- Wrong numbers: check filters, the real/demo selector, blank fields and recorded times. Edit the affected match; do not change later star observations to fabricate a continuous sequence.
+- Wrong numbers: check filters, blank fields and recorded times. Edit the affected match; do not change later star observations to fabricate a continuous sequence.
 - The research inspector returning `NO_VERIFIED_PARSER` is expected. It hashes local copies only and exits 2; it cannot import a match.
 
-CI runs typechecking, lint, formatting, regression tests, and the build. Tests cover shared stars, zero changes, unknown data, chronology, corrections, duplicate guards, backup validation, real/demo isolation, storage failures and timezone conversion, plus the original inspector tests.
+CI runs typechecking, lint, formatting, regression tests, and the build. Tests cover shared stars, zero changes, unknown data, chronology, corrections, duplicate guards, backup validation, legacy-data compatibility and demo-backup rejection, storage failures and timezone conversion, plus the original inspector tests.

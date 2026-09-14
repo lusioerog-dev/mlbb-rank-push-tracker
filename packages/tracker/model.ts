@@ -53,8 +53,7 @@ export type Match = z.infer<typeof matchSchema>;
 export const stateSchema = z
   .object({
     format: z.literal("mlbb-manual-tracker"),
-    version: z.literal(1),
-    dataset: z.enum(["real", "demo"]),
+    version: z.literal(2),
     revision: z.number().int().nonnegative(),
     players: z.array(playerSchema).min(1).max(100),
     heroes: z.array(heroSchema).max(1000),
@@ -146,7 +145,6 @@ export const stateSchema = z
       });
   });
 export type TrackerState = z.infer<typeof stateSchema>;
-export type Dataset = TrackerState["dataset"];
 
 export function starChange(match: Match): number | null {
   if (match.mode !== "ranked") return null;

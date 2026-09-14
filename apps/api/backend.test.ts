@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
 import { handle } from "./index";
 import { initialState } from "../../packages/tracker/seed";
+import { readState } from "../../packages/tracker/compatibility";
 const owner = "11111111-1111-4111-8111-111111111111";
 const other = "22222222-2222-4222-8222-222222222222";
 const env = {
@@ -61,7 +62,11 @@ test("API verifies identity and refuses nonmembers, demo imports and invalid pay
   assert.equal(
     (
       await handle(
-        req("/workspaces", "POST", initialState("demo")),
+        req("/workspaces", "POST", {
+          ...initialState(),
+          version: 1,
+          dataset: "demo",
+        }),
         env,
         fetcher,
       )
@@ -89,12 +94,60 @@ test("API maps atomic save conflict to 409 and does not expose backend secrets",
     );
   };
   const result = await handle(
-    req(`/workspaces/${other}`, "PUT", initialState("real")),
+    req(`/workspaces/${other}`, "PUT", initialState()),
     env,
     fetcher,
   );
   assert.equal(result.status, 409);
   assert.ok(!(await result.text()).includes(env.SUPABASE_SERVICE_ROLE_KEY));
+});
+test("API reads existing snapshots and keeps old and new clients compatible without losing records", async () => {
+  const canonical = initialState();
+  const legacy = { ...canonical, version: 1, dataset: "real" };
+  let writes = 0;
+  const fetcher: typeof fetch = async (input, init) => {
+    const url = String(input);
+    if (url.endsWith("/auth/v1/user"))
+      return Response.json({
+        id: owner,
+        email_confirmed_at: "2026-09-13T00:00:00Z",
+      });
+    if (url.includes("tracker_members?"))
+      return Response.json([{ user_id: owner }]);
+    if (url.includes("tracker_workspaces?"))
+      return Response.json([{ state: legacy }]);
+    if (url.endsWith("/rpc/tracker_save")) {
+      const body = JSON.parse(String(init?.body));
+      assert.deepEqual(body.next_state, legacy);
+      assert.equal(body.expected, 0);
+      assert.equal(body.actor, owner);
+      writes++;
+      return Response.json({ ...body.next_state, revision: 1 });
+    }
+    throw new Error("Unexpected request");
+  };
+  const loaded = await handle(req(`/workspaces/${other}`), env, fetcher);
+  assert.equal(loaded.status, 200);
+  assert.deepEqual(await loaded.json(), legacy);
+  assert.equal(writes, 0);
+  for (const payload of [legacy, canonical]) {
+    const saved = await handle(
+      req(`/workspaces/${other}`, "PUT", payload),
+      env,
+      fetcher,
+    );
+    assert.equal(saved.status, 200);
+    const wire = await saved.json();
+    assert.deepEqual(wire, { ...legacy, revision: 1 });
+    assert.deepEqual(readState(wire), { ...canonical, revision: 1 });
+  }
+  const rejected = await handle(
+    req(`/workspaces/${other}`, "PUT", { ...legacy, dataset: "demo" }),
+    env,
+    fetcher,
+  );
+  assert.equal(rejected.status, 400);
+  assert.equal(writes, 2);
 });
 test("PostgreSQL protects rows, saves atomically, retains server audit and consumes invites once", async () => {
   const db = new PGlite();
@@ -113,7 +166,7 @@ test("PostgreSQL protects rows, saves atomically, retains server audit and consu
     );
     const created = await db.query<{ id: string }>(
       "select public.tracker_create($1,$2::jsonb) as id",
-      [owner, JSON.stringify(initialState("real"))],
+      [owner, JSON.stringify(initialState())],
     );
     const wid = created.rows[0]!.id;
     await db.exec("set role anon");
@@ -124,7 +177,7 @@ test("PostgreSQL protects rows, saves atomically, retains server audit and consu
     await assert.rejects(
       db.query("select public.tracker_create($1,$2::jsonb)", [
         owner,
-        JSON.stringify(initialState("real")),
+        JSON.stringify(initialState()),
       ]),
       /permission denied/,
     );
@@ -138,20 +191,20 @@ test("PostgreSQL protects rows, saves atomically, retains server audit and consu
       db.query("select public.tracker_save($1,$2,0,$3::jsonb)", [
         other,
         wid,
-        JSON.stringify(initialState("real")),
+        JSON.stringify(initialState()),
       ]),
       /FORBIDDEN/,
     );
     await db.query("select public.tracker_save($1,$2,0,$3::jsonb)", [
       owner,
       wid,
-      JSON.stringify(initialState("real")),
+      JSON.stringify(initialState()),
     ]);
     await assert.rejects(
       db.query("select public.tracker_save($1,$2,0,$3::jsonb)", [
         owner,
         wid,
-        JSON.stringify(initialState("real")),
+        JSON.stringify(initialState()),
       ]),
       /CONFLICT/,
     );
@@ -174,7 +227,7 @@ test("PostgreSQL protects rows, saves atomically, retains server audit and consu
     await db.query("select public.tracker_save($1,$2,1,$3::jsonb)", [
       other,
       wid,
-      JSON.stringify(initialState("real")),
+      JSON.stringify(initialState()),
     ]);
     const saved = await db.query<{ state: { revision: number } }>(
       "select state from public.tracker_workspaces where id=$1",

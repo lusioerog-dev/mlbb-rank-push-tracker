@@ -690,11 +690,6 @@ td:last-child {
 .notice .text-button {
   margin-left: auto;
 }
-.notice.demo {
-  background: #f6efdf;
-  border-color: #eadbb9;
-  color: #887145;
-}
 .empty {
   padding: 48px 20px;
   text-align: center;

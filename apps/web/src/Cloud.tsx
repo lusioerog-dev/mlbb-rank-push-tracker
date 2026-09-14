@@ -3,7 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 import type { Session } from "@supabase/supabase-js";
 import { z } from "zod";
 import { App } from "./App";
-import { stateSchema } from "../../../packages/tracker/model";
+import {
+  readState,
+  writeCompatibleState,
+} from "../../../packages/tracker/compatibility";
 import type { TrackerState } from "../../../packages/tracker/model";
 import { loadState } from "../../../packages/tracker/storage";
 import { initialState } from "../../../packages/tracker/seed";
@@ -135,9 +138,11 @@ function Connected({ config }: { config: Config }) {
   if (!ready) return <main className="recovery">Checking your sign-in…</main>;
   const remote: RemoteStore = {
     id: `${userId}:${active}`,
-    load: async () => stateSchema.parse(await api(`/workspaces/${active}`)),
+    load: async () => readState(await api(`/workspaces/${active}`)),
     save: async (state) =>
-      stateSchema.parse(await api(`/workspaces/${active}`, "PUT", state)),
+      readState(
+        await api(`/workspaces/${active}`, "PUT", writeCompatibleState(state)),
+      ),
   };
   return (
     <>
@@ -293,7 +298,7 @@ function Connected({ config }: { config: Config }) {
               disabled={busy}
               onClick={() =>
                 void run(async () => {
-                  const state = loadState(localStorage, "real");
+                  const state = loadState(localStorage);
                   if (
                     !window.confirm(
                       `Create a shared tracker from this browser's ${state.matches.length} real matches? Your local copy stays available.`,
@@ -302,7 +307,13 @@ function Connected({ config }: { config: Config }) {
                     return;
                   const { id } = z
                     .object({ id: z.string().uuid() })
-                    .parse(await api("/workspaces", "POST", state));
+                    .parse(
+                      await api(
+                        "/workspaces",
+                        "POST",
+                        writeCompatibleState(state),
+                      ),
+                    );
                   setIds([...ids, id]);
                   setActive(id);
                 })
@@ -320,18 +331,22 @@ function Connected({ config }: { config: Config }) {
                     )
                   )
                     return;
-                  const empty = initialState("real");
+                  const empty = initialState();
                   const { id } = z.object({ id: z.string().uuid() }).parse(
-                    await api("/workspaces", "POST", {
-                      ...empty,
-                      matches: [],
-                      audit: [],
-                      push: {
-                        ...empty.push,
-                        name: "New season",
-                        startingStars: 0,
-                      },
-                    }),
+                    await api(
+                      "/workspaces",
+                      "POST",
+                      writeCompatibleState({
+                        ...empty,
+                        matches: [],
+                        audit: [],
+                        push: {
+                          ...empty.push,
+                          name: "New season",
+                          startingStars: 0,
+                        },
+                      }),
+                    ),
                   );
                   setIds([...ids, id]);
                   setActive(id);

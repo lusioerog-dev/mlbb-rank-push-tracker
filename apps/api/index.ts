@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { stateSchema } from "../../packages/tracker/model";
+import {
+  readState,
+  writeCompatibleState,
+} from "../../packages/tracker/compatibility";
 
 export interface Env {
   SUPABASE_URL: string;
@@ -143,14 +146,12 @@ export async function handle(
         );
       response = json(rows.map((r) => r.workspace_id));
     } else if (path === "/workspaces" && request.method === "POST") {
-      const state = stateSchema.parse(body);
-      if (state.dataset !== "real")
-        throw new HttpError(400, "Only real trackers can be shared.");
+      const state = readState(body);
       response = json(
         {
           id: await db("rpc/tracker_create", "POST", {
             actor: user.id,
-            initial_state: state,
+            initial_state: writeCompatibleState(state),
           }),
         },
         201,
@@ -180,23 +181,18 @@ export async function handle(
         throw new HttpError(403, "You do not have access to this tracker.");
       if (!match[2] && request.method === "GET") {
         const rows = z
-          .array(z.object({ state: stateSchema }))
+          .array(z.object({ state: z.unknown() }))
           .parse(await db(`tracker_workspaces?id=eq.${wid}&select=state`));
         if (!rows[0]) throw new HttpError(404, "Tracker not found.");
-        response = json(rows[0].state);
+        response = json(writeCompatibleState(readState(rows[0].state)));
       } else if (!match[2] && request.method === "PUT") {
-        const next = stateSchema.parse(body);
-        if (next.dataset !== "real")
-          throw new HttpError(
-            400,
-            "Demo data cannot replace a shared tracker.",
-          );
+        const next = readState(body);
         response = json(
           await db("rpc/tracker_save", "POST", {
             actor: user.id,
             wid,
             expected: next.revision,
-            next_state: next,
+            next_state: writeCompatibleState(next),
           }),
         );
       } else if (match[2] && request.method === "POST") {

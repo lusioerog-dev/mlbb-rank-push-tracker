@@ -16,10 +16,10 @@ import { initialState } from "./seed";
 import { RANK_RULES, advanceRank, rankLabel } from "./rank-rules";
 import { parseBackup } from "./storage";
 const state = (stars = 115): TrackerState => ({
-  ...initialState("real"),
+  ...initialState(),
   matches: [],
   push: {
-    ...initialState("real").push,
+    ...initialState().push,
     startingStars: stars,
     startingRank: {
       tier: "Mythic",
@@ -34,7 +34,7 @@ const match = (
   playerId = "rupesh",
   playedAt = `2026-09-13T${id.padStart(2, "0")}:00:00Z`,
 ): Match => ({
-  ...initialState("real").matches[0]!,
+  ...initialState().matches[0]!,
   id,
   playerId,
   playedAt,
@@ -194,7 +194,7 @@ test("edits, deletion, backdating and backup refresh recalculate without stale a
   assert.equal(currentRank(removed).stars, 118);
   assert.equal(removed.audit.at(-1)!.action, "delete_match");
   assert.deepEqual(
-    dailyProgression(parseBackup(JSON.stringify(removed), "real")),
+    dailyProgression(parseBackup(JSON.stringify(removed))),
     dailyProgression(removed),
   );
   const before = JSON.stringify(removed);
@@ -204,7 +204,7 @@ test("edits, deletion, backdating and backup refresh recalculate without stale a
   assert.equal(JSON.stringify(removed), before);
 });
 test("old backups stay valid, explicit deltas override old observations, invalid starting ranks reject", () => {
-  const legacy = stateSchema.parse(initialState("real"));
+  const legacy = stateSchema.parse(initialState());
   assert.equal(currentRank(legacy).stars, 117);
   const s = state();
   s.matches = [{ ...match("1", 2), starsBefore: 115, starsAfter: 116 }];

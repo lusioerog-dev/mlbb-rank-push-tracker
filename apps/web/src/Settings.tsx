@@ -217,8 +217,8 @@ export function Settings({
         <p className="eyebrow">YOUR DATA</p>
         <h2>Your backups and history</h2>
         <p>
-          Shared trackers save online. Personal browser trackers and demo data
-          stay on this device. Check the storage label before recording matches.
+          Shared trackers save online. Personal browser records stay on this
+          device. Check the storage label before recording matches.
         </p>
         <p>
           Use <strong>Export backup</strong> regularly. The JSON backup includes

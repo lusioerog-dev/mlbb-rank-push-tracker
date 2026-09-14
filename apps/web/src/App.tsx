@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Clock3,
   Download,
-  Flag,
   Gamepad2,
   LayoutDashboard,
   List,
@@ -27,11 +26,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type {
-  Dataset,
-  Match,
-  TrackerState,
-} from "../../../packages/tracker/model";
+import type { Match, TrackerState } from "../../../packages/tracker/model";
 import {
   currentRank,
   heroStats,
@@ -71,7 +66,6 @@ function download(filename: string, text: string, type = "application/json") {
 }
 type Page = "overview" | "matches" | "heroes" | "settings";
 export function App({ remote }: { remote?: RemoteStore }) {
-  const [dataset, setDataset] = useState<Dataset>("real");
   const [state, setState] = useState<TrackerState | null>(null);
   const [fatal, setFatal] = useState("");
   const [page, setPage] = useState<Page>("overview");
@@ -86,14 +80,14 @@ export function App({ remote }: { remote?: RemoteStore }) {
   const file = useRef<HTMLInputElement>(null);
   const saving = useRef(false);
   const [reload, setReload] = useState(0);
-  const shared = Boolean(remote && dataset === "real");
+  const shared = Boolean(remote);
   useEffect(() => {
     let cancelled = false;
     setState(null);
     void (
       shared
         ? remote!.load()
-        : Promise.resolve().then(() => loadState(localStorage, dataset))
+        : Promise.resolve().then(() => loadState(localStorage))
     )
       .then((value) => {
         if (!cancelled) {
@@ -116,18 +110,18 @@ export function App({ remote }: { remote?: RemoteStore }) {
       cancelled = true;
     };
     // The parent keys this component by user and workspace; token refresh must not reload forms.
-  }, [dataset, reload]);
+  }, [reload]);
   useEffect(() => {
     if (shared) return;
     const handler = (e: StorageEvent) => {
-      if (e.key === storageKey(dataset))
+      if (e.key === storageKey)
         setMessage(
           "This tracker changed in another tab. Reload before editing.",
         );
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
-  }, [dataset, shared]);
+  }, [shared]);
   useEffect(() => {
     if (!shared || !remote || !state) return;
     let cancelled = false;
@@ -179,10 +173,10 @@ export function App({ remote }: { remote?: RemoteStore }) {
     try {
       if (backup.size > 20 * 1024 * 1024)
         throw new Error("Backup is too large (maximum 20 MB).");
-      const incoming = parseBackup(await backup.text(), dataset);
+      const incoming = parseBackup(await backup.text());
       if (
         !window.confirm(
-          `Restore ${incoming.matches.length} matches in the ${dataset} tracker? This replaces its current records. Export a backup first if you want to keep them.`,
+          `Restore ${incoming.matches.length} matches in the tracker? This replaces its current records. Export a backup first if you want to keep them.`,
         )
       )
         return;
@@ -206,7 +200,7 @@ export function App({ remote }: { remote?: RemoteStore }) {
             onClick={() =>
               download(
                 "mlbb-recovery.txt",
-                localStorage.getItem(storageKey(dataset)) ?? "",
+                localStorage.getItem(storageKey) ?? "",
                 "text/plain",
               )
             }
@@ -428,32 +422,13 @@ export function App({ remote }: { remote?: RemoteStore }) {
                 Refresh shared data
               </button>
             )}
-            <select
-              disabled={shared}
-              aria-label="Tracker dataset"
-              className="dataset"
-              value={dataset}
-              onChange={(e) => {
-                if (e.target.value === dataset) return;
-                setState(null);
-                setDataset(e.target.value as Dataset);
-                setMessage("");
-              }}
-            >
-              <option value="real">Real tracker</option>
-              <option value="demo">Demo tracker</option>
-            </select>
             <span className="avatar">{state.players[0]!.name.slice(0, 1)}</span>
           </div>
         </header>
         <main>
           <div className="page-heading">
             <div>
-              <p className="eyebrow">
-                {state.dataset === "demo"
-                  ? "PRACTICE SPACE · INVENTED PLAYER ASSIGNMENTS"
-                  : "ONE ACCOUNT · EVERY CONTRIBUTION COUNTS"}
-              </p>
+              <p className="eyebrow">ONE ACCOUNT · EVERY CONTRIBUTION COUNTS</p>
               <h1>
                 {page === "overview"
                   ? state.push.name
@@ -473,15 +448,6 @@ export function App({ remote }: { remote?: RemoteStore }) {
               <Plus size={18} /> Record match
             </button>
           </div>
-          {dataset === "demo" && (
-            <div className="notice demo">
-              <Flag size={18} />
-              <span>
-                Demo data. Player assignments are invented for testing and do
-                not affect the real tracker.
-              </span>
-            </div>
-          )}
           {message && (
             <div className="notice" role="status">
               <Check size={18} />
@@ -890,11 +856,7 @@ export function App({ remote }: { remote?: RemoteStore }) {
             </section>
           )}
           {page === "settings" && (
-            <Settings
-              key={`${dataset}-${state.players.length}`}
-              state={state}
-              onSave={save}
-            />
+            <Settings key={state.players.length} state={state} onSave={save} />
           )}
           <footer>
             <span>
@@ -906,10 +868,7 @@ export function App({ remote }: { remote?: RemoteStore }) {
               <button
                 className="text-button"
                 onClick={() =>
-                  download(
-                    `mlbb-${dataset}-backup.json`,
-                    JSON.stringify(state, null, 2),
-                  )
+                  download("mlbb-backup.json", JSON.stringify(state, null, 2))
                 }
               >
                 <Download size={15} /> Export backup
@@ -918,7 +877,7 @@ export function App({ remote }: { remote?: RemoteStore }) {
                 className="text-button"
                 onClick={() =>
                   download(
-                    `mlbb-${dataset}-matches.csv`,
+                    "mlbb-matches.csv",
                     exportCsv(state),
                     "text/csv;charset=utf-8",
                   )

@@ -1,44 +1,34 @@
 import { stateSchema, starChange } from "./model";
-import type { Dataset, TrackerState } from "./model";
+import type { TrackerState } from "./model";
 import { initialState } from "./seed";
+import { readState, writeCompatibleState } from "./compatibility";
 export interface StoragePort {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
 }
-export const storageKey = (dataset: Dataset) => `mlbb-manual-v1-${dataset}`;
-export function loadState(
-  storage: StoragePort,
-  dataset: Dataset,
-): TrackerState {
-  const raw = storage.getItem(storageKey(dataset));
-  if (raw === null) return initialState(dataset);
-  const value = stateSchema.parse(JSON.parse(raw));
-  if (value.dataset !== dataset)
-    throw new Error("Saved data belongs to a different tracker.");
-  return value;
+// Preserve the existing real-data key, including unreadable recovery data.
+export const storageKey = "mlbb-manual-v1-real";
+export function loadState(storage: StoragePort): TrackerState {
+  const raw = storage.getItem(storageKey);
+  return raw === null ? initialState() : readState(JSON.parse(raw));
 }
 export function persistState(
   storage: StoragePort,
   next: TrackerState,
   expectedRevision: number,
 ): TrackerState {
-  const current = storage.getItem(storageKey(next.dataset));
+  const current = storage.getItem(storageKey);
   if (
     current !== null &&
-    stateSchema.parse(JSON.parse(current)).revision !== expectedRevision
+    readState(JSON.parse(current)).revision !== expectedRevision
   )
     throw new Error("Another tab changed this tracker. Reload before saving.");
   const saved = stateSchema.parse({ ...next, revision: expectedRevision + 1 });
-  storage.setItem(storageKey(saved.dataset), JSON.stringify(saved));
+  storage.setItem(storageKey, JSON.stringify(writeCompatibleState(saved)));
   return saved;
 }
-export function parseBackup(raw: string, dataset: Dataset) {
-  const state = stateSchema.parse(JSON.parse(raw));
-  if (state.dataset !== dataset)
-    throw new Error(
-      "Switch to the matching real/demo tracker before restoring this backup.",
-    );
-  return state;
+export function parseBackup(raw: string) {
+  return readState(JSON.parse(raw));
 }
 const csvCell = (value: string | number | null) => {
   let text = value === null ? "" : String(value);
@@ -49,7 +39,6 @@ export function exportCsv(state: TrackerState) {
   const rows: Array<Array<string | number | null>> = [
     [
       "id",
-      "dataset",
       "player",
       "hero",
       "played_at",
@@ -71,7 +60,6 @@ export function exportCsv(state: TrackerState) {
   for (const m of state.matches)
     rows.push([
       m.id,
-      state.dataset,
       state.players.find((p) => p.id === m.playerId)!.name,
       state.heroes.find((h) => h.id === m.heroId)?.name ?? null,
       m.playedAt,
