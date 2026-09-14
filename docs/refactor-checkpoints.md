@@ -3,8 +3,9 @@
 Further development follows the [short architecture plan](architecture-plan.md).
 Its checkpoints A–F replace the deferred order below; the older list remains as
 scope history. Checkpoint A is complete: [backup and rehearsal evidence](backup-rehearsal.md).
-Checkpoint B1 is complete: [additive schema and read API](checkpoint-b1.md). The
-next checkpoint is B2: transactional saves, fresh backup and production cutover.
+Checkpoint B is complete: [B1 added the normalized read model](checkpoint-b1.md)
+and [B2 completed transactional saves and the production cutover](checkpoint-b2.md).
+The next checkpoint is C: Battle ID, hero identity and played position.
 
 ## Phase protocol
 

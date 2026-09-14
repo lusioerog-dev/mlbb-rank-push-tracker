@@ -1,6 +1,6 @@
 # MLBB Pilot Push architecture plan
 
-Status: proposed direction after release `81146f4`, 14 September 2026.
+Status: active plan after checkpoint B production cutover, 14 September 2026.
 Scope: one shared MLBB account, Gaurav and Rupesh, manual Ranked tracking first.
 Keep the working site available and deliver one small checkpoint per `continue`.
 
@@ -93,8 +93,9 @@ Unknown values stay null rather than becoming zero or a guessed result.
 Each checkpoint includes its relevant tests, diff review, Git checkpoint and
 release notes. Ship independently when safe; stop before the next checkpoint.
 Checkpoint A is complete; see [its results and limitations](backup-rehearsal.md).
-Checkpoint B1 defines and locally verifies the additive schema and read API; see
-[its report](checkpoint-b1.md). Checkpoint B2 is the transactional save and live
-cutover, and requires a new `continue`.
+Checkpoint B is complete: [B1](checkpoint-b1.md) introduced and rehearsed the
+additive read model, and [B2](checkpoint-b2.md) completed the transactional save
+path and production cutover. The next checkpoint is C: Battle ID, hero identity
+and played position.
 Official portraits and extra analytics are optional polish; do not
 spend the remaining usage on speculative importer work or a full redesign.
