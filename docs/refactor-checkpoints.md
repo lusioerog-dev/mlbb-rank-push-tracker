@@ -1,5 +1,9 @@
 # Private tracker refactor checkpoints
 
+Further development follows the [short architecture plan](architecture-plan.md).
+Its checkpoints A–F replace the deferred order below; the older list remains as
+scope history. The next checkpoint is A: verified backup and migration rehearsal.
+
 ## Phase protocol
 
 The user reprioritized on 14 September: deliver a usable season-launch release
@@ -8,7 +12,12 @@ release phase: season archival, essential UI cleanup, verification and deploymen
 This supersedes the original order below. Test, inspect the diff, checkpoint,
 report, and stop after the release; do not begin deferred work automatically.
 
-## Season-launch release (current)
+## Season-launch release (deployed)
+
+Released as `81146f4`. Worker and Pages deployment and signed-in reads were
+verified. No production database migration ran. The planned verified local
+production backup and mobile check were not established in the release log;
+do not treat them as completed prerequisites for a future data migration.
 
 - Reuse the working private tracker, authentication and shared saves.
 - Archive a season inside existing correction history before clearing the active
