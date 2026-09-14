@@ -1,3 +1,4 @@
+import { playerName } from "../../../packages/tracker/players";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpRight,
@@ -293,7 +294,7 @@ export function App({ remote }: { remote?: RemoteStore }) {
                 <span
                   className={`player-dot p${state.players.findIndex((p) => p.id === m.playerId) % 3}`}
                 />
-                {state.players.find((p) => p.id === m.playerId)?.name}
+                {playerName(m.playerId)}
               </td>
               <td>
                 {state.heroes.find((h) => h.id === m.heroId)?.name ?? (
@@ -422,7 +423,9 @@ export function App({ remote }: { remote?: RemoteStore }) {
                 Refresh shared data
               </button>
             )}
-            <span className="avatar">{state.players[0]!.name.slice(0, 1)}</span>
+            <span className="avatar">
+              {playerName(state.players[0]!.id).slice(0, 1)}
+            </span>
           </div>
         </header>
         <main>
@@ -465,10 +468,10 @@ export function App({ remote }: { remote?: RemoteStore }) {
                   value={player}
                   onChange={(e) => setPlayer(e.target.value)}
                 >
-                  <option value="all">All players</option>
+                  <option value="all">All</option>
                   {state.players.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name}
+                      {playerName(p.id)}
                     </option>
                   ))}
                 </select>
@@ -728,10 +731,10 @@ export function App({ remote }: { remote?: RemoteStore }) {
                     return (
                       <div className="player-summary" key={p.id}>
                         <div className={`player-avatar p${i % 3}`}>
-                          {p.name.slice(0, 1)}
+                          {playerName(p.id).slice(0, 1)}
                         </div>
                         <div className="player-info">
-                          <strong>{p.name}</strong>
+                          <strong>{playerName(p.id)}</strong>
                           <span>
                             {s.games
                               ? `${s.games} games · ${percent(s.winRate)} win rate`
@@ -828,7 +831,7 @@ export function App({ remote }: { remote?: RemoteStore }) {
                           <td>
                             <strong>{h.hero.name}</strong>
                           </td>
-                          <td>{h.player.name}</td>
+                          <td>{playerName(h.player.id)}</td>
                           <td>{h.games}</td>
                           <td>{percent(h.winRate)}</td>
                           <td>{signed(h.net)}</td>
@@ -891,6 +894,25 @@ export function App({ remote }: { remote?: RemoteStore }) {
               >
                 <Upload size={15} /> Restore backup
               </button>
+              {shared && page === "settings" && (
+                <button
+                  className="text-button"
+                  onClick={() => {
+                    try {
+                      const raw = localStorage.getItem(storageKey);
+                      if (raw === null)
+                        setMessage(
+                          "No older browser backup was found on this device.",
+                        );
+                      else download("mlbb-browser-recovery.json", raw);
+                    } catch {
+                      setMessage("Could not read this browser's saved data.");
+                    }
+                  }}
+                >
+                  Recover browser backup
+                </button>
+              )}
               <input
                 type="file"
                 accept=".json,application/json"

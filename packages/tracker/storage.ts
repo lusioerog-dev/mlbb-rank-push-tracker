@@ -2,6 +2,7 @@ import { stateSchema, starChange } from "./model";
 import type { TrackerState } from "./model";
 import { initialState } from "./seed";
 import { readState, writeCompatibleState } from "./compatibility";
+import { playerName } from "./players";
 export interface StoragePort {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
@@ -60,7 +61,7 @@ export function exportCsv(state: TrackerState) {
   for (const m of state.matches)
     rows.push([
       m.id,
-      state.players.find((p) => p.id === m.playerId)!.name,
+      playerName(m.playerId),
       state.heroes.find((h) => h.id === m.heroId)?.name ?? null,
       m.playedAt,
       m.mode,

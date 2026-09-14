@@ -1,3 +1,4 @@
+import { PLAYERS } from "../../../packages/tracker/players";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { X } from "lucide-react";
@@ -148,7 +149,7 @@ export function MatchForm({
               name="player"
               defaultValue={match?.playerId ?? state.players[0]!.id}
             >
-              {state.players.map((p) => (
+              {PLAYERS.map((p) => (
                 <option value={p.id} key={p.id}>
                   {p.name}
                 </option>

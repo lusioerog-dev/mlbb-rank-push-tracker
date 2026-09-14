@@ -1,5 +1,7 @@
 # Shared manual tracker backend
 
+Historical setup below describes the original platform. For current private-push behavior and deployment order, see [Phase 1b](private-push.md). Creation and invitation instructions below no longer apply to the refactored code.
+
 Implementation and production configuration added 2026-09-13. Publishing is performed explicitly through Wrangler; pushing GitHub alone does not update this direct-upload Pages project.
 
 Deployment progress on 2026-09-13: Supabase project `xanckgfnjampzgijdnxx` is healthy, the migration ran successfully, and Auth site/redirect URLs are configured. The Worker is deployed at `https://mlbb-tracker-api.lusioer-og.workers.dev` with the approved service-role key stored as an encrypted secret. The owner login exists. Public access to all four tracker tables is denied, and unauthenticated API requests return 401. An authenticated live save/reload still requires the owner to sign in to the website.

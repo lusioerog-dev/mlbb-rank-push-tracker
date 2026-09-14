@@ -35,24 +35,23 @@ the dashboard and match form render without the selector or console errors. The
 build reports a large JavaScript chunk warning; bundle splitting is outside this
 subphase. Production authentication and live database contents remain unverified.
 
-## Next: Phase 1b, private shared-push cleanup
+## Phase 1b: private shared-push cleanup
 
-Before removing selection or database objects, obtain a read-only inventory of
-live workspaces, memberships, player IDs and season labels. The live data was not
-available during Phase 0/1a. Never choose an arbitrary first workspace or discard
-another workspace: the current application creates a workspace for each season.
+Starting checkpoint: `8a2d495`, clean branch `codex/phase-1a-remove-demo`.
+Read-only live SQL verified one workspace, two members, two matches and five
+history snapshots. The expected player IDs are present. See [inventory, changes,
+checks and rollout](private-push.md) for details and the verified workspace UUID.
 
-Preserve a data backup and establish which workspace is the current shared push,
-which records are historical seasons, and whether useful local-only data exists.
-Then remove creation/join/invitation APIs and UI, ordinary personal/shared switching,
-and editable/additional player controls. Fix user-facing identities to Gaurav and
-Rupesh while preserving historical attribution. Keep authentication, authorization,
-revision conflict handling and server audit history. If identities or workspaces
-are ambiguous, stop before destructive changes and request the missing mapping.
+Removed generic creation/join/invite APIs and controls, workspace selection,
+public signup, personal/shared switching, and player-editing controls. Preserved
+membership authorization, audit history, old-client read/save compatibility and
+browser backup recovery. A tested migration retires creation/join functions and
+invite access without deleting rows. No production deployment or migration was
+performed. A fresh verified local data backup is required before live migration.
 
-No referral implementation was found. Do not fabricate referral-removal work.
-Retire SQL objects only through new, verified migrations; preserve the applied
-initial migration and historical snapshots. Do not redesign unrelated pages.
+36 tests, typechecking, lint, formatting, build, and local Settings checks passed.
+The next phase is Phase 2, the canonical match/automation foundation. Do not begin
+it without a new explicit continue.
 
 ## Later phases (each requires its own continue)
 

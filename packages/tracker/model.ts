@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { playerName } from "./players";
 import {
   advanceRank,
   rankLabel,
@@ -11,7 +12,10 @@ const id = z.string().min(1).max(100);
 const name = z.string().trim().min(1).max(80);
 const count = z.number().int().min(0).max(1000000);
 const instant = z.string().datetime({ offset: true });
-export const playerSchema = z.object({ id, name }).strict();
+// Retain original stored names as historical data; display uses fixed identities.
+export const playerSchema = z
+  .object({ id: z.enum(["gaurav", "rupesh"]), name })
+  .strict();
 export const heroSchema = z.object({ id, name }).strict();
 export const matchSchema = z
   .object({
@@ -55,7 +59,7 @@ export const stateSchema = z
     format: z.literal("mlbb-manual-tracker"),
     version: z.literal(2),
     revision: z.number().int().nonnegative(),
-    players: z.array(playerSchema).min(1).max(100),
+    players: z.array(playerSchema).length(2),
     heroes: z.array(heroSchema).max(1000),
     push: z
       .object({
@@ -236,7 +240,7 @@ export function accountProgression(state: TrackerState) {
           startingStars: before,
           delta,
           rank,
-          player: state.players.find((p) => p.id === m.playerId)!.name,
+          player: playerName(m.playerId),
         };
       }),
   ];

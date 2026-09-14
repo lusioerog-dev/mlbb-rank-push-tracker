@@ -8,6 +8,7 @@ export interface Env {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   ALLOWED_ORIGIN: string;
+  SHARED_WORKSPACE_ID: string;
 }
 const uuid = z.string().uuid();
 class HttpError extends Error {
@@ -38,7 +39,7 @@ export async function handle(
     "Access-Control-Allow-Origin": env.ALLOWED_ORIGIN,
     Vary: "Origin",
     "Access-Control-Allow-Headers": "Authorization, Content-Type",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, PUT, OPTIONS",
   };
   if (request.method === "OPTIONS")
     return new Response(null, { status: 204, headers: cors });
@@ -92,11 +93,6 @@ export async function handle(
             409,
             "Someone saved changes first. Refresh the tracker before trying again. Your form is still open.",
           );
-        if (message.includes("INVALID_INVITE"))
-          throw new HttpError(
-            400,
-            "This invitation has expired or was already used.",
-          );
         if (message.includes("FORBIDDEN"))
           throw new HttpError(403, "You do not have access to this tracker.");
         throw new HttpError(
@@ -108,8 +104,20 @@ export async function handle(
       return text ? JSON.parse(text) : null;
     };
     const path = new URL(request.url).pathname;
+    const configured = uuid.safeParse(env.SHARED_WORKSPACE_ID);
+    if (!configured.success)
+      throw new HttpError(503, "The shared push is not configured.");
+    const wid = configured.data;
+    // Retain fixed-workspace read/save URLs for older deployed clients only.
+    const legacyPath = `/workspaces/${wid}`;
+    if (path !== "/tracker" && path !== legacyPath && path !== "/workspaces")
+      throw new HttpError(404, "Not found.");
+    if (request.method !== "GET" && request.method !== "PUT")
+      throw new HttpError(405, "Method not allowed.");
+    if (path === "/workspaces" && request.method !== "GET")
+      throw new HttpError(405, "Method not allowed.");
     let body: unknown;
-    if (request.method === "POST" || request.method === "PUT") {
+    if (request.method === "PUT") {
       if (!request.headers.get("Content-Type")?.startsWith("application/json"))
         throw new HttpError(415, "Send JSON data.");
       const reader = request.body?.getReader();
@@ -138,86 +146,33 @@ export async function handle(
         throw new HttpError(400, "Invalid JSON.");
       }
     }
-    if (path === "/workspaces" && request.method === "GET") {
-      const rows = z
-        .array(z.object({ workspace_id: uuid }))
-        .parse(
-          await db(`tracker_members?user_id=eq.${user.id}&select=workspace_id`),
-        );
-      response = json(rows.map((r) => r.workspace_id));
-    } else if (path === "/workspaces" && request.method === "POST") {
-      const state = readState(body);
-      response = json(
-        {
-          id: await db("rpc/tracker_create", "POST", {
-            actor: user.id,
-            initial_state: writeCompatibleState(state),
-          }),
-        },
-        201,
+    const members = z
+      .array(z.object({ user_id: uuid }))
+      .parse(
+        await db(
+          `tracker_members?workspace_id=eq.${wid}&user_id=eq.${user.id}&select=user_id`,
+        ),
       );
-    } else if (path === "/join" && request.method === "POST") {
-      const { code } = z
-        .object({ code: z.string().regex(/^[a-f0-9]{64}$/) })
-        .parse(body);
-      response = json({
-        id: await db("rpc/tracker_join", "POST", {
-          actor: user.id,
-          invite_hash: await hash(code),
-        }),
-      });
+    if (!members.length)
+      throw new HttpError(403, "You do not have access to this tracker.");
+    if (path === "/workspaces") {
+      response = json([wid]);
+    } else if (request.method === "GET") {
+      const rows = z
+        .array(z.object({ state: z.unknown() }))
+        .parse(await db(`tracker_workspaces?id=eq.${wid}&select=state`));
+      if (!rows[0]) throw new HttpError(404, "Tracker not found.");
+      response = json(writeCompatibleState(readState(rows[0].state)));
     } else {
-      const match = /^\/workspaces\/([^/]+)(\/invite)?$/.exec(path);
-      if (!match) throw new HttpError(404, "Not found.");
-      const wid = uuid.parse(match[1]);
-      const members = z
-        .array(z.object({ user_id: uuid }))
-        .parse(
-          await db(
-            `tracker_members?workspace_id=eq.${wid}&user_id=eq.${user.id}&select=user_id`,
-          ),
-        );
-      if (!members.length)
-        throw new HttpError(403, "You do not have access to this tracker.");
-      if (!match[2] && request.method === "GET") {
-        const rows = z
-          .array(z.object({ state: z.unknown() }))
-          .parse(await db(`tracker_workspaces?id=eq.${wid}&select=state`));
-        if (!rows[0]) throw new HttpError(404, "Tracker not found.");
-        response = json(writeCompatibleState(readState(rows[0].state)));
-      } else if (!match[2] && request.method === "PUT") {
-        const next = readState(body);
-        response = json(
-          await db("rpc/tracker_save", "POST", {
-            actor: user.id,
-            wid,
-            expected: next.revision,
-            next_state: writeCompatibleState(next),
-          }),
-        );
-      } else if (match[2] && request.method === "POST") {
-        const owners = z
-          .array(z.object({ owner_id: uuid }))
-          .parse(
-            await db(
-              `tracker_workspaces?id=eq.${wid}&owner_id=eq.${user.id}&select=owner_id`,
-            ),
-          );
-        if (!owners.length)
-          throw new HttpError(
-            403,
-            "Only the tracker owner can invite players.",
-          );
-        const code = Array.from(
-          crypto.getRandomValues(new Uint8Array(32)),
-          (b) => b.toString(16).padStart(2, "0"),
-        ).join("");
-        await db("tracker_invites", "POST", {
-          workspace_id: wid,
-          token_hash: await hash(code),
-        });
-        response = json({ code });
-      } else throw new HttpError(405, "Method not allowed.");
+      const next = readState(body);
+      response = json(
+        await db("rpc/tracker_save", "POST", {
+          actor: user.id,
+          wid,
+          expected: next.revision,
+          next_state: writeCompatibleState(next),
+        }),
+      );
     }
   } catch (error) {
     response =
@@ -233,13 +188,5 @@ export async function handle(
   for (const [key, value] of Object.entries(cors))
     response.headers.set(key, value);
   return response;
-}
-async function hash(value: string) {
-  return Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)),
-    ),
-    (b) => b.toString(16).padStart(2, "0"),
-  ).join("");
 }
 export default { fetch: (request: Request, env: Env) => handle(request, env) };

@@ -28,4 +28,7 @@ Deletion records the original match and reason in the existing audit array; serv
 
 ## Next season
 
-Export a backup of the current tracker. Sign in and choose **Start a new shared season**; the previous workspace remains available. In Settings enter the season label and the actual rank/division/stars shown after the game resets. Save before the first match. Share a new workspace invitation with the other player's separate login. For each match record its actual star change, player and optional duration.
+The previous workflow created a separate shared workspace per season. Phase 1b
+removes that generic creation flow. Existing history is retained; the explicit
+End Current Season / Create New Season workflow is scheduled for Phase 4. Do not
+replace the current push or alter its baseline to simulate a season transition.

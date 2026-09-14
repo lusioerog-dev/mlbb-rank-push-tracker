@@ -11,6 +11,7 @@ const env = {
   SUPABASE_URL: "https://example.supabase.co",
   SUPABASE_SERVICE_ROLE_KEY: "test-server-key",
   ALLOWED_ORIGIN: "https://tracker.example",
+  SHARED_WORKSPACE_ID: other,
 };
 const req = (path: string, method = "GET", body?: unknown) =>
   new Request(`https://api.example${path}`, {
@@ -44,7 +45,7 @@ test("API rejects unauthenticated and foreign-origin requests before accessing d
     403,
   );
 });
-test("API verifies identity and refuses nonmembers, demo imports and invalid payloads", async () => {
+test("API verifies identity and refuses nonmembers and obsolete creation requests", async () => {
   const fetcher: typeof fetch = async (input) => {
     const url = String(input);
     if (url.endsWith("/auth/v1/user"))
@@ -71,12 +72,76 @@ test("API verifies identity and refuses nonmembers, demo imports and invalid pay
         fetcher,
       )
     ).status,
-    400,
+    405,
   );
   assert.equal(
     (await handle(req("/workspaces", "POST", {}), env, fetcher)).status,
-    400,
+    405,
   );
+});
+test("private endpoint rejects retired routes, foreign workspaces and missing configuration", async () => {
+  let databaseCalls = 0;
+  const fetcher: typeof fetch = async (input) => {
+    if (String(input).endsWith("/auth/v1/user"))
+      return Response.json({
+        id: owner,
+        email_confirmed_at: "2026-09-13T00:00:00Z",
+      });
+    databaseCalls++;
+    throw new Error("Unexpected database call");
+  };
+  for (const [path, method, status] of [
+    ["/join", "POST", 404],
+    [`/workspaces/${other}/invite`, "POST", 404],
+    ["/workspaces", "POST", 405],
+    [`/workspaces/${owner}`, "GET", 404],
+    ["/tracker", "POST", 405],
+  ] as const) {
+    assert.equal(
+      (await handle(req(path!, method!), env, fetcher)).status,
+      status,
+    );
+  }
+  assert.equal(
+    (
+      await handle(
+        req("/tracker"),
+        { ...env, SHARED_WORKSPACE_ID: "" },
+        fetcher,
+      )
+    ).status,
+    503,
+  );
+  assert.equal(databaseCalls, 0);
+});
+
+test("both existing members can read the same pinned push and unconfirmed users cannot", async () => {
+  for (const actor of [owner, other]) {
+    const fetcher: typeof fetch = async (input) => {
+      const url = String(input);
+      if (url.endsWith("/auth/v1/user"))
+        return Response.json({
+          id: actor,
+          email_confirmed_at: "2026-09-13T00:00:00Z",
+        });
+      if (url.includes("tracker_members?")) {
+        assert.ok(url.includes(`workspace_id=eq.${other}&user_id=eq.${actor}`));
+        return Response.json([{ user_id: actor }]);
+      }
+      assert.ok(url.includes(`tracker_workspaces?id=eq.${other}&select=state`));
+      return Response.json([
+        { state: { ...initialState(), version: 1, dataset: "real" } },
+      ]);
+    };
+    const result = await handle(req("/tracker"), env, fetcher);
+    assert.equal(result.status, 200);
+    assert.deepEqual(readState(await result.json()), initialState());
+    const legacy = await handle(req("/workspaces"), env, fetcher);
+    assert.deepEqual(await legacy.json(), [other]);
+  }
+  const unconfirmed: typeof fetch = async () =>
+    Response.json({ id: owner, email_confirmed_at: null });
+  assert.equal((await handle(req("/tracker"), env, unconfirmed)).status, 403);
 });
 test("API maps atomic save conflict to 409 and does not expose backend secrets", async () => {
   const fetcher: typeof fetch = async (input) => {
@@ -241,6 +306,55 @@ test("PostgreSQL protects rows, saves atomically, retains server audit and consu
     await assert.rejects(
       db.query("select public.tracker_join($1,$2)", [other, "expired"]),
       /INVALID_INVITE/,
+    );
+    await db.exec("reset role");
+    const beforeCleanup = await db.query(
+      "select state, revision from public.tracker_workspaces",
+    );
+    await db.exec(
+      await readFile(
+        new URL(
+          "../../supabase/migrations/202609140001_retire_platform_flows.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    assert.deepEqual(
+      (await db.query("select state, revision from public.tracker_workspaces"))
+        .rows,
+      beforeCleanup.rows,
+    );
+    const counts = await db.query(
+      "select (select count(*)::int from public.tracker_members) as members, (select count(*)::int from public.tracker_history) as history, (select count(*)::int from public.tracker_invites) as invites",
+    );
+    assert.deepEqual(counts.rows, [{ members: 2, history: 3, invites: 1 }]);
+    const functions = await db.query(
+      "select to_regprocedure('public.tracker_create(uuid,jsonb)') as create_fn, to_regprocedure('public.tracker_join(uuid,text)') as join_fn",
+    );
+    assert.deepEqual(functions.rows, [{ create_fn: null, join_fn: null }]);
+    await db.exec("set role service_role");
+    await assert.rejects(
+      db.query("select * from public.tracker_invites"),
+      /permission denied/,
+    );
+    await db.query("select public.tracker_save($1,$2,2,$3::jsonb)", [
+      owner,
+      wid,
+      JSON.stringify(initialState()),
+    ]);
+    await db.query("select public.tracker_save($1,$2,3,$3::jsonb)", [
+      other,
+      wid,
+      JSON.stringify(initialState()),
+    ]);
+    await assert.rejects(
+      db.query("select public.tracker_save($1,$2,3,$3::jsonb)", [
+        owner,
+        wid,
+        JSON.stringify(initialState()),
+      ]),
+      /CONFLICT/,
     );
   } finally {
     await db.close();

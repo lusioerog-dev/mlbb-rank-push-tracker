@@ -23,14 +23,10 @@ export function Settings({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
-    const form = event.currentTarget;
     setPending(true);
     try {
       const data = new FormData(event.currentTarget);
       const get = (key: string) => String(data.get(key) ?? "").trim();
-      const players = state.players.map((p) => ({ ...p, name: get(p.id) }));
-      if (get("newPlayer"))
-        players.push({ id: crypto.randomUUID(), name: get("newPlayer") });
       const push = {
         name: get("name"),
         season: get("season"),
@@ -51,7 +47,6 @@ export function Settings({
       };
       const next = stateSchema.parse({
         ...state,
-        players,
         push,
         audit: [
           ...state.audit,
@@ -59,14 +54,13 @@ export function Settings({
             id: crypto.randomUUID(),
             at: new Date().toISOString(),
             action: "settings",
-            note: "Updated push settings or player names.",
+            note: "Updated push settings.",
             before: { push: state.push, players: state.players },
           },
         ],
       });
       await onSave(next);
       setError("");
-      form.querySelector<HTMLInputElement>('[name="newPlayer"]')!.value = "";
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save settings.");
     } finally {
@@ -176,33 +170,8 @@ export function Settings({
             Select the rank and stars shown in-game at the start of this tracked
             season. The current reset mapping is not verified, so no reset is
             guessed. Changing this baseline recalculates all matches in this
-            tracker; use a new shared season to preserve the previous season
-            separately.
+            tracker. Export a backup before changing it.
           </p>
-          <fieldset>
-            <legend>Players</legend>
-            <div className="form-grid">
-              {state.players.map((p) => (
-                <label key={p.id}>
-                  Display name
-                  <input
-                    name={p.id}
-                    required
-                    maxLength={80}
-                    defaultValue={p.name}
-                  />
-                </label>
-              ))}
-              <label>
-                Add another player
-                <input
-                  name="newPlayer"
-                  maxLength={80}
-                  placeholder="Optional display name"
-                />
-              </label>
-            </div>
-          </fieldset>
           {error && (
             <p role="alert" className="error">
               {error}
@@ -217,8 +186,8 @@ export function Settings({
         <p className="eyebrow">YOUR DATA</p>
         <h2>Your backups and history</h2>
         <p>
-          Shared trackers save online. Personal browser records stay on this
-          device. Check the storage label before recording matches.
+          Existing browser records can be exported with Recover browser backup.
+          Recovery does not replace the shared push.
         </p>
         <p>
           Use <strong>Export backup</strong> regularly. The JSON backup includes

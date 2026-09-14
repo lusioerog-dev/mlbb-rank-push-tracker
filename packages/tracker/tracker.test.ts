@@ -167,7 +167,7 @@ test("hero statistics remain per-player and CSV escapes spreadsheet formulas", (
   const state = initialState();
   state.heroes.push({ id: "hero1", name: "Confirmed hero" });
   state.matches[0] = { ...state.matches[0]!, heroId: "hero1" };
-  state.players[1]!.name = '=HYPERLINK("example")';
+  state.heroes[0]!.name = '=HYPERLINK("example")';
   assert.equal(heroStats(state, state.matches)[0]!.games, 1);
   assert.match(exportCsv(state), /'=HYPERLINK\(""example""\)/);
 });
