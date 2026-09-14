@@ -65,7 +65,8 @@ Unknown values stay null rather than becoming zero or a guessed result.
 
 1. Export and verify the current state, membership and server history. Rehearse a
    restore locally. A Git commit or inspecting live rows is not a data backup.
-   The release log does not establish a verified local production backup.
+   Checkpoint A now establishes a verified revision-8 application backup; see
+   [backup and rehearsal evidence](backup-rehearsal.md). Refresh it before cutover.
 2. Add the new tables and migration tooling without changing the live read path.
    Backfill active matches and season archives with repeatable mappings. Preserve
    IDs, raw legacy snapshots and ambiguous history instead of guessing links.
@@ -91,5 +92,7 @@ Unknown values stay null rather than becoming zero or a guessed result.
 
 Each checkpoint includes its relevant tests, diff review, Git checkpoint and
 release notes. Ship independently when safe; stop before the next checkpoint.
-Official portraits and extra analytics are optional polish. Begin with A; do not
+Checkpoint A is complete; see [its results and limitations](backup-rehearsal.md).
+Checkpoint B is next and requires a new `continue`.
+Official portraits and extra analytics are optional polish; do not
 spend the remaining usage on speculative importer work or a full redesign.
