@@ -1120,3 +1120,19 @@ hr {
     gap: 14px;
   }
 }
+.season-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 18px 0;
+}
+.season-confirm input {
+  width: auto;
+  flex: none;
+  margin-top: 3px;
+}
+input:disabled,
+select:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}

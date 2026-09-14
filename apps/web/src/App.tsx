@@ -223,7 +223,11 @@ export function App({ remote }: { remote?: RemoteStore }) {
       (!to || localInput(m.playedAt, state.push.timezone).slice(0, 10) <= to),
   );
   const matches =
-    windowSize === "all" ? filtered : filtered.slice(-Number(windowSize));
+    page === "overview"
+      ? ordered(state.matches).filter((m) => m.mode === "ranked")
+      : windowSize === "all"
+        ? filtered
+        : filtered.slice(-Number(windowSize));
   const summary = stats(matches);
   const target = state.push.targetStars;
   const progress =
@@ -323,9 +327,11 @@ export function App({ remote }: { remote?: RemoteStore }) {
                 >
                   {signed(starChange(m))}
                 </strong>
-                <small>
-                  {m.starsBefore ?? "?"} → {m.starsAfter ?? "?"}
-                </small>
+                {(m.starsBefore !== null || m.starsAfter !== null) && (
+                  <small>
+                    {m.starsBefore ?? "—"} → {m.starsAfter ?? "—"}
+                  </small>
+                )}
               </td>
               <td>
                 <button
@@ -368,7 +374,6 @@ export function App({ remote }: { remote?: RemoteStore }) {
             <small>MLBB RANK TRACKER</small>
           </span>
         </a>
-        <p className="nav-label">YOUR WORKSPACE</p>
         <nav>
           {nav.map(([id, label, Icon]) => (
             <button
@@ -383,19 +388,6 @@ export function App({ remote }: { remote?: RemoteStore }) {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="shared-mark">
-            <Users size={20} />
-            <div>
-              One account.
-              <br />
-              <strong>A shared climb.</strong>
-            </div>
-          </div>
-          <p>
-            Every match has a player.
-            <br />
-            Every star belongs to the account.
-          </p>
           <span className="local-badge">
             <span /> {shared ? "Shared cloud storage" : "Saved on this browser"}
           </span>
@@ -404,7 +396,6 @@ export function App({ remote }: { remote?: RemoteStore }) {
       <div className="workspace">
         <header className="topbar">
           <span className="breadcrumb">
-            Workspace <ChevronRight size={14} />{" "}
             <strong>{nav.find((n) => n[0] === page)![1]}</strong>
           </span>
           <div className="top-actions">
@@ -423,32 +414,20 @@ export function App({ remote }: { remote?: RemoteStore }) {
                 Refresh shared data
               </button>
             )}
-            <span className="avatar">
-              {playerName(state.players[0]!.id).slice(0, 1)}
-            </span>
           </div>
         </header>
         <main>
           <div className="page-heading">
             <div>
-              <p className="eyebrow">ONE ACCOUNT · EVERY CONTRIBUTION COUNTS</p>
+              <p className="eyebrow">{state.push.season || "CURRENT SEASON"}</p>
               <h1>
                 {page === "overview"
                   ? state.push.name
                   : nav.find((n) => n[0] === page)![1]}
               </h1>
-              <p className="muted">
-                {page === "overview"
-                  ? "Your progress, one match at a time."
-                  : page === "matches"
-                    ? "The details behind every step of the climb."
-                    : page === "heroes"
-                      ? "Find what works for each player."
-                      : "Your players, your target, your data."}
-              </p>
             </div>
             <button className="primary" onClick={() => setEditing(null)}>
-              <Plus size={18} /> Record match
+              <Plus size={18} /> Record Ranked
             </button>
           </div>
           {message && (
@@ -460,7 +439,7 @@ export function App({ remote }: { remote?: RemoteStore }) {
               </button>
             </div>
           )}
-          {page !== "settings" && (
+          {(page === "matches" || page === "heroes") && (
             <div className="filters">
               <label>
                 <span className="sr-only">Player</span>
@@ -558,7 +537,7 @@ export function App({ remote }: { remote?: RemoteStore }) {
                     <span>
                       {target === null
                         ? "Choose your next milestone"
-                        : `Target: ${target} stars`}
+                        : `Target balance: ${target} stars`}
                     </span>
                     <button
                       onClick={() => setPage("settings")}
@@ -597,12 +576,11 @@ export function App({ remote }: { remote?: RemoteStore }) {
                     <span className="stat-icon">
                       <Star size={20} />
                     </span>
-                    <p>Net stars</p>
-                    <strong className="positive">{signed(summary.net)}</strong>
-                    <small>
-                      {summary.starCoverage}/{summary.games} matches with known
-                      change
-                    </small>
+                    <p>Wins / losses</p>
+                    <strong>
+                      {summary.wins} / {summary.losses}
+                    </strong>
+                    <small>This season · Ranked</small>
                   </div>
                   <div className="stat-card">
                     <span className="stat-icon">
@@ -763,14 +741,6 @@ export function App({ remote }: { remote?: RemoteStore }) {
                       </div>
                     );
                   })}
-                  <div className="tip">
-                    <ShieldCheck size={21} />
-                    <p>
-                      Players take turns.
-                      <br />
-                      The account’s stars carry forward.
-                    </p>
-                  </div>
                 </section>
               </div>
               <section className="panel history-panel">
@@ -808,10 +778,6 @@ export function App({ remote }: { remote?: RemoteStore }) {
                   {matches.length} heroes recorded
                 </span>
               </div>
-              <p className="muted">
-                Hero names from the screenshots await confirmation. Edit a match
-                to add its hero; performance will appear here.
-              </p>
               {heroStats(state, matches).length ? (
                 <div className="table-scroll">
                   <table>
@@ -859,7 +825,7 @@ export function App({ remote }: { remote?: RemoteStore }) {
             </section>
           )}
           {page === "settings" && (
-            <Settings key={state.players.length} state={state} onSave={save} />
+            <Settings key={state.revision} state={state} onSave={save} />
           )}
           <footer>
             <span>
@@ -888,12 +854,14 @@ export function App({ remote }: { remote?: RemoteStore }) {
               >
                 CSV
               </button>
-              <button
-                className="text-button"
-                onClick={() => file.current?.click()}
-              >
-                <Upload size={15} /> Restore backup
-              </button>
+              {page === "settings" && (
+                <button
+                  className="text-button"
+                  onClick={() => file.current?.click()}
+                >
+                  <Upload size={15} /> Restore backup
+                </button>
+              )}
               {shared && page === "settings" && (
                 <button
                   className="text-button"

@@ -25,7 +25,7 @@ export function MatchForm({
   const dialog = useRef<HTMLDialogElement>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [mode, setMode] = useState<Match["mode"]>(match?.mode ?? "ranked");
+  const mode: Match["mode"] = match?.mode ?? "ranked";
   useEffect(() => {
     const el = dialog.current!;
     el.showModal();
@@ -126,7 +126,7 @@ export function MatchForm({
         <div>
           <p className="eyebrow">SHARED ACCOUNT</p>
           <h2 id="match-form-title">
-            {match ? "Edit match" : "Record a match"}
+            {match ? "Edit match" : "Record Ranked match"}
           </h2>
         </div>
         <button
@@ -186,23 +186,12 @@ export function MatchForm({
             </datalist>
           </label>
           <label>
-            Mode
-            <select
-              value={mode}
-              onChange={(e) => setMode(e.target.value as Match["mode"])}
-            >
-              <option value="ranked">Ranked</option>
-              <option value="classic">Classic</option>
-              <option value="unknown">Unknown</option>
-            </select>
-          </label>
-          <label>
             Result
             <select name="result" defaultValue={match?.result ?? "win"}>
               <option value="win">Victory</option>
               <option value="loss">Defeat</option>
-              <option value="draw">Draw</option>
-              <option value="unknown">Unknown</option>
+              {match?.result === "draw" && <option value="draw">Draw</option>}
+              <option value="unknown">Not confirmed</option>
             </select>
           </label>
         </div>
@@ -265,10 +254,8 @@ export function MatchForm({
               </label>
             )}
             <p className="muted small">
-              Enter the actual star change, including bonuses or protection.
-              Victory does not always mean +1. If change is blank, two known
-              original observations can supply their difference. Rank is
-              calculated from your season starting rank.
+              Enter the actual star change, including bonuses or protection. Use
+              0 for a protected loss. Leave blank if unconfirmed.
             </p>
             <details>
               <summary>Original star observations (optional)</summary>

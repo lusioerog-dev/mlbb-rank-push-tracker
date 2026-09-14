@@ -2,9 +2,30 @@
 
 ## Phase protocol
 
-One explicit `continue` authorizes one phase or subphase. Test, inspect the diff,
-checkpoint, report, and stop after each. Inspect Git status, diff, and recent
-commits before resuming interrupted work. Do not run later phases automatically.
+The user reprioritized on 14 September: deliver a usable season-launch release
+as soon as possible with limited usage. The next checkpoint is one bounded
+release phase: season archival, essential UI cleanup, verification and deployment.
+This supersedes the original order below. Test, inspect the diff, checkpoint,
+report, and stop after the release; do not begin deferred work automatically.
+
+## Season-launch release (current)
+
+- Reuse the working private tracker, authentication and shared saves.
+- Archive a season inside existing correction history before clearing the active
+  match log. Keep original match IDs, heroes and all prior corrections. Show past
+  season records in Settings and include them in full JSON backups.
+- Enter the actual new starting rank; never guess the season reset. Protect the
+  baseline after matches exist, allowing an explicit correction with a reason.
+- Simplify Overview, keep filters in match/hero views, focus new entry on Ranked,
+  and keep actual star changes including zero for protection.
+- Verify season preservation, stale saves, build and mobile/desktop rendering.
+- Deploy the Worker and Pages app after a verified production snapshot backup.
+  No production database migration or row deletion is needed for this release.
+
+Deferred: Battle ID/importer foundation, official artwork, lane analytics,
+rank-aware target redesign, full placement workflow and further visual polish.
+The current optional target is explicitly a season star balance, not a rank target.
+Full refactor completion is not required for this launch.
 
 ## Phase 1a: remove the Demo/Real system
 
@@ -50,10 +71,9 @@ invite access without deleting rows. No production deployment or migration was
 performed. A fresh verified local data backup is required before live migration.
 
 36 tests, typechecking, lint, formatting, build, and local Settings checks passed.
-The next phase is Phase 2, the canonical match/automation foundation. Do not begin
-it without a new explicit continue.
+The original next phase was Phase 2; the season-launch release above now takes priority.
 
-## Later phases (each requires its own continue)
+## Deferred original phases (each requires its own continue)
 
 2. Canonical match and automation foundation, Battle ID and database deduplication.
 3. Minimal verified MLBB hero mapping and official base portraits.
