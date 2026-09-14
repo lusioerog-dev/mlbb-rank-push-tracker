@@ -7,6 +7,7 @@ import {
   saveMatch,
   starChange,
   deleteMatch,
+  recordHeroObservation,
 } from "../../../packages/tracker/model";
 import type { Match, TrackerState } from "../../../packages/tracker/model";
 import { localInput, toInstant } from "../../../packages/tracker/time";
@@ -26,6 +27,7 @@ export function MatchForm({
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const mode: Match["mode"] = match?.mode ?? "ranked";
+  const currentHero = state.heroes.find((hero) => hero.id === match?.heroId);
   useEffect(() => {
     const el = dialog.current!;
     el.showModal();
@@ -40,26 +42,23 @@ export function MatchForm({
       const text = (key: string) => String(form.get(key) ?? "").trim();
       const number = (key: string) =>
         text(key) === "" ? null : Number(text(key));
-      const heroName = text("hero");
-      const existing = state.heroes.find(
-        (h) => h.name.toLowerCase() === heroName.toLowerCase(),
+      const hero = recordHeroObservation(
+        state,
+        text("hero"),
+        text("heroGameId"),
       );
-      const hero = heroName
-        ? (existing ?? { id: crypto.randomUUID(), name: heroName })
-        : null;
-      const next =
-        hero && !existing
-          ? { ...state, heroes: [...state.heroes, hero] }
-          : state;
       const minutes = number("minutes"),
         seconds = number("seconds");
       const now = new Date().toISOString();
       const result = saveMatch(
-        next,
+        hero.state,
         {
           id: match?.id ?? crypto.randomUUID(),
+          battleId: text("battleId") || null,
           playerId: text("player"),
-          heroId: hero?.id ?? null,
+          heroId: hero.heroId,
+          heroObservation: hero.observation,
+          playedPosition: text("position") || null,
           playedAt: toInstant(text("date"), state.push.timezone),
           mode,
           result: text("result"),
@@ -169,13 +168,22 @@ export function MatchForm({
             />
           </label>
           <label>
+            Battle ID <span className="muted">optional</span>
+            <input
+              name="battleId"
+              maxLength={100}
+              defaultValue={match?.battleId ?? ""}
+              placeholder="Keep leading zeros"
+            />
+          </label>
+          <label>
             Hero
             <input
               name="hero"
               list="hero-options"
               maxLength={80}
               defaultValue={
-                state.heroes.find((h) => h.id === match?.heroId)?.name ?? ""
+                match?.heroObservation?.name ?? currentHero?.name ?? ""
               }
               placeholder="Enter hero name, if known"
             />
@@ -184,6 +192,30 @@ export function MatchForm({
                 <option key={h.id} value={h.name} />
               ))}
             </datalist>
+          </label>
+          <label>
+            Verified hero ID <span className="muted">optional</span>
+            <input
+              name="heroGameId"
+              maxLength={100}
+              defaultValue={
+                match?.heroObservation === undefined
+                  ? (currentHero?.gameId ?? "")
+                  : (match.heroObservation?.gameId ?? "")
+              }
+              placeholder="Only when confirmed"
+            />
+          </label>
+          <label>
+            Position played <span className="muted">optional</span>
+            <select name="position" defaultValue={match?.playedPosition ?? ""}>
+              <option value="">Not recorded</option>
+              <option value="exp_lane">EXP lane</option>
+              <option value="gold_lane">Gold lane</option>
+              <option value="mid_lane">Mid lane</option>
+              <option value="roam">Roam</option>
+              <option value="jungle">Jungle</option>
+            </select>
           </label>
           <label>
             Result

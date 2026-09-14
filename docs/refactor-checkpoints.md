@@ -5,7 +5,9 @@ Its checkpoints A–F replace the deferred order below; the older list remains a
 scope history. Checkpoint A is complete: [backup and rehearsal evidence](backup-rehearsal.md).
 Checkpoint B is complete: [B1 added the normalized read model](checkpoint-b1.md)
 and [B2 completed transactional saves and the production cutover](checkpoint-b2.md).
-The next checkpoint is C: Battle ID, hero identity and played position.
+[Checkpoint C](checkpoint-c.md) is complete locally. The next checkpoint is D:
+rank checkpoints, placement and rank-aware targets. Per the updated release
+plan, checkpoints C–F remain local and deploy together after final QA and review.
 
 ## Phase protocol
 

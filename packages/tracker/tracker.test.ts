@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   currentRank,
   heroStats,
+  recordHeroObservation,
   saveMatch,
   starChange,
   stateSchema,
@@ -93,6 +94,57 @@ test("corrections preserve originals and creation provenance; duplicate match ti
     () => saveMatch(state, { ...old, id: "duplicate" }),
     /already recorded/,
   );
+});
+test("battle, hero and played-position identity preserve exact observations", () => {
+  const state = initialState();
+  const first = recordHeroObservation(
+    state,
+    "Benedetta",
+    "000000421",
+    "hero-benedetta",
+  );
+  const aliased = recordHeroObservation(
+    first.state,
+    "Bene",
+    "000000421",
+    "unused-id",
+  );
+  assert.equal(aliased.heroId, "hero-benedetta");
+  assert.deepEqual(aliased.state.heroes[0], {
+    id: "hero-benedetta",
+    name: "Benedetta",
+    gameId: "000000421",
+    aliases: ["Bene"],
+  });
+  const saved = saveMatch(aliased.state, {
+    ...aliased.state.matches[0]!,
+    id: "identified-match",
+    battleId: "0000123456789012345",
+    heroId: aliased.heroId,
+    heroObservation: aliased.observation,
+    playedPosition: "exp_lane",
+    playedAt: "2026-09-13T01:00:00Z",
+  });
+  assert.equal(saved.matches.at(-1)!.battleId, "0000123456789012345");
+  assert.equal(saved.matches.at(-1)!.playedPosition, "exp_lane");
+  assert.deepEqual(saved.matches.at(-1)!.heroObservation, {
+    name: "Bene",
+    gameId: "000000421",
+  });
+  assert.throws(
+    () =>
+      saveMatch(saved, {
+        ...saved.matches.at(-1)!,
+        id: "duplicate-battle",
+        playedAt: "2026-09-13T02:00:00Z",
+      }),
+    /Battle ID/,
+  );
+  assert.deepEqual(recordHeroObservation(state, "", ""), {
+    state,
+    heroId: null,
+    observation: null,
+  });
 });
 test("runtime validation rejects malformed imports and broken references", () => {
   const state = initialState();

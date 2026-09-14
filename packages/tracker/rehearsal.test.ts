@@ -58,7 +58,10 @@ test("local restore and conversion preserve archived observations, history and a
 
 test("additive v2 schema backfills stable season and match records without changing legacy rows", async () => {
   const backup = fixture();
-  const activeMatch = initialState().matches[0]!;
+  const legacyHero = { id: "legacy-hero", name: "Legacy hero" };
+  const activeMatch = { ...initialState().matches[0]!, heroId: legacyHero.id };
+  backup.workspaces[0]!.state.heroes = [legacyHero];
+  backup.history.at(-1)!.state.heroes = [legacyHero];
   backup.workspaces[0]!.state.matches = [activeMatch];
   backup.history.at(-1)!.state.matches = [activeMatch];
   const db = new PGlite();
@@ -135,6 +138,25 @@ test("additive v2 schema backfills stable season and match records without chang
       ).rows,
       legacyBefore.rows,
     );
+    await db.exec("reset role");
+    await db.exec(
+      await readFile(
+        new URL(
+          "../../supabase/migrations/202609140004_match_identity.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    await db.exec("set role service_role");
+    assert.deepEqual(
+      (
+        await db.query(
+          "select hero_id, name from public.tracker_heroes where hero_id='legacy-hero'",
+        )
+      ).rows,
+      [{ hero_id: "legacy-hero", name: "Legacy hero" }],
+    );
     const seasonIds = (
       await db.query<{ id: string }>(
         "select id from public.tracker_seasons order by id",
@@ -156,8 +178,26 @@ test("additive v2 schema backfills stable season and match records without chang
       /FORBIDDEN/,
     );
     const canonical = readState(backup.workspaces[0]!.state);
+    const identified = {
+      id: "hero-verified",
+      name: "Verified hero",
+      gameId: "00077",
+      aliases: ["Observed alias"],
+    };
     const changed = {
       ...canonical,
+      heroes: [...canonical.heroes, identified],
+      matches: canonical.matches.map((match, index) =>
+        index
+          ? match
+          : {
+              ...match,
+              battleId: "000123456789",
+              heroId: identified.id,
+              heroObservation: { name: "Observed alias", gameId: "00077" },
+              playedPosition: "jungle" as const,
+            },
+      ),
       push: { ...canonical.push, targetStars: 125 },
     };
     const saved = (
@@ -167,6 +207,36 @@ test("additive v2 schema backfills stable season and match records without chang
       )
     ).rows[0]!.tracker_save_v2;
     assert.deepEqual(readState(saved), { ...changed, revision: 2 });
+    assert.deepEqual(
+      (
+        await db.query(
+          "select battle_id, played_position, observed_hero_name, observed_hero_game_id from public.tracker_matches where battle_id is not null",
+        )
+      ).rows,
+      [
+        {
+          battle_id: "000123456789",
+          played_position: "jungle",
+          observed_hero_name: "Observed alias",
+          observed_hero_game_id: "00077",
+        },
+      ],
+    );
+    assert.deepEqual(
+      (
+        await db.query(
+          "select hero_id, game_id, name, aliases from public.tracker_heroes where game_id is not null",
+        )
+      ).rows,
+      [
+        {
+          hero_id: "hero-verified",
+          game_id: "00077",
+          name: "Verified hero",
+          aliases: ["Observed alias"],
+        },
+      ],
+    );
     assert.deepEqual(
       readState(
         (
@@ -220,6 +290,25 @@ test("additive v2 schema backfills stable season and match records without chang
       "select count(*) filter(where status='active')::int active, count(*) filter(where status='archived')::int archived, (select count(*)::int from public.tracker_matches) matches from public.tracker_seasons",
     );
     assert.deepEqual(counts.rows, [{ active: 1, archived: 2, matches: 5 }]);
+    const duplicateAcrossSeasons = {
+      ...readState(rolled),
+      matches: [
+        {
+          ...changed.matches[0]!,
+          id: "cross-season-duplicate",
+          playedAt: "2026-09-15T12:00:00Z",
+        },
+      ],
+    };
+    await assert.rejects(
+      db.query("select public.tracker_save_v2($1,$2,$3,$4::jsonb)", [
+        owner,
+        account,
+        4,
+        JSON.stringify(duplicateAcrossSeasons),
+      ]),
+      /tracker_match_battle_id/,
+    );
     assert.deepEqual(
       (
         await db.query<{ revision: number }>(

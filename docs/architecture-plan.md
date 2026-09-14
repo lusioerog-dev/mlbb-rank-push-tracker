@@ -91,11 +91,14 @@ Unknown values stay null rather than becoming zero or a guessed result.
 | F     | Reviewed importer                            | Verified source data exists; retries and manual overrides are safe. |
 
 Each checkpoint includes its relevant tests, diff review, Git checkpoint and
-release notes. Ship independently when safe; stop before the next checkpoint.
+release notes. Following the production B2 cutover, keep checkpoints C–F local
+and deploy them together only after final QA and user review. Stop before the
+next checkpoint.
 Checkpoint A is complete; see [its results and limitations](backup-rehearsal.md).
 Checkpoint B is complete: [B1](checkpoint-b1.md) introduced and rehearsed the
 additive read model, and [B2](checkpoint-b2.md) completed the transactional save
-path and production cutover. The next checkpoint is C: Battle ID, hero identity
-and played position.
+path and production cutover. Checkpoint C is complete locally; see
+[its report](checkpoint-c.md). The next checkpoint is D: rank checkpoints,
+placement and rank-aware targets.
 Official portraits and extra analytics are optional polish; do not
 spend the remaining usage on speculative importer work or a full redesign.

@@ -27,7 +27,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { Match, TrackerState } from "../../../packages/tracker/model";
+import type {
+  Match,
+  PlayedPosition,
+  TrackerState,
+} from "../../../packages/tracker/model";
 import {
   currentRank,
   heroStats,
@@ -57,6 +61,16 @@ const percent = (value: number | null) =>
   value === null ? "—" : `${value.toFixed(1)}%`;
 const duration = (seconds: number) =>
   `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+const positionLabel = (position: PlayedPosition | undefined) =>
+  position
+    ? {
+        exp_lane: "EXP lane",
+        gold_lane: "Gold lane",
+        mid_lane: "Mid lane",
+        roam: "Roam",
+        jungle: "Jungle",
+      }[position]
+    : null;
 function download(filename: string, text: string, type = "application/json") {
   const url = URL.createObjectURL(new Blob([text], { type }));
   const anchor = document.createElement("a");
@@ -292,6 +306,7 @@ export function App({ remote }: { remote?: RemoteStore }) {
                 </span>
                 <small>
                   {date(m.playedAt)} · {m.mode}
+                  {m.battleId ? ` · Battle ${m.battleId}` : ""}
                 </small>
               </td>
               <td>
@@ -303,6 +318,9 @@ export function App({ remote }: { remote?: RemoteStore }) {
               <td>
                 {state.heroes.find((h) => h.id === m.heroId)?.name ?? (
                   <span className="muted">Not recorded</span>
+                )}
+                {positionLabel(m.playedPosition) && (
+                  <small>{positionLabel(m.playedPosition)}</small>
                 )}
               </td>
               <td className="mono">

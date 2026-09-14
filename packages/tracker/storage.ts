@@ -40,8 +40,13 @@ export function exportCsv(state: TrackerState) {
   const rows: Array<Array<string | number | null>> = [
     [
       "id",
+      "battle_id",
       "player",
       "hero",
+      "hero_game_id",
+      "observed_hero_name",
+      "observed_hero_game_id",
+      "position_played",
       "played_at",
       "mode",
       "result",
@@ -61,8 +66,13 @@ export function exportCsv(state: TrackerState) {
   for (const m of state.matches)
     rows.push([
       m.id,
+      m.battleId ?? null,
       playerName(m.playerId),
       state.heroes.find((h) => h.id === m.heroId)?.name ?? null,
+      state.heroes.find((h) => h.id === m.heroId)?.gameId ?? null,
+      m.heroObservation?.name ?? null,
+      m.heroObservation?.gameId ?? null,
+      m.playedPosition ?? null,
       m.playedAt,
       m.mode,
       m.result,

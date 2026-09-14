@@ -69,14 +69,31 @@ try {
     ),
   );
   await db.exec("set role service_role");
+  const backfills = new Map<string, unknown>();
+  for (const workspace of backup.workspaces)
+    backfills.set(
+      workspace.id,
+      (
+        await db.query<{ tracker_backfill_v2: unknown }>(
+          "select public.tracker_backfill_v2($1)",
+          [workspace.id],
+        )
+      ).rows[0]!.tracker_backfill_v2,
+    );
+  await db.exec("reset role");
+  await db.exec(
+    await readFile(
+      new URL(
+        "../supabase/migrations/202609140004_match_identity.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  await db.exec("set role service_role");
   const results = [];
   for (const workspace of backup.workspaces) {
-    const backfill = (
-      await db.query<{ tracker_backfill_v2: unknown }>(
-        "select public.tracker_backfill_v2($1)",
-        [workspace.id],
-      )
-    ).rows[0]!.tracker_backfill_v2;
+    const backfill = backfills.get(workspace.id);
     const loaded = (
       await db.query<{ tracker_load_v2: unknown }>(
         "select public.tracker_load_v2($1,$2)",

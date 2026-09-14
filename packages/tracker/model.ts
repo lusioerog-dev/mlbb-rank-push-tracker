@@ -12,16 +12,40 @@ const id = z.string().min(1).max(100);
 const name = z.string().trim().min(1).max(80);
 const count = z.number().int().min(0).max(1000000);
 const instant = z.string().datetime({ offset: true });
+const externalId = z.string().trim().min(1).max(100);
 // Retain original stored names as historical data; display uses fixed identities.
 export const playerSchema = z
   .object({ id: z.enum(["gaurav", "rupesh"]), name })
   .strict();
-export const heroSchema = z.object({ id, name }).strict();
+export const heroSchema = z
+  .object({
+    id,
+    name,
+    gameId: externalId.nullable().optional(),
+    aliases: z.array(name).max(50).optional(),
+  })
+  .strict();
+export const playedPositionSchema = z
+  .enum(["exp_lane", "gold_lane", "mid_lane", "roam", "jungle"])
+  .nullable();
+export type PlayedPosition = z.infer<typeof playedPositionSchema>;
+const heroObservationSchema = z
+  .object({
+    name: name.nullable(),
+    gameId: externalId.nullable(),
+  })
+  .strict()
+  .refine((value) => value.name !== null || value.gameId !== null, {
+    message: "A hero observation needs a name or verified game ID.",
+  });
 export const matchSchema = z
   .object({
     id,
+    battleId: externalId.nullable().optional(),
     playerId: id,
     heroId: id.nullable(),
+    heroObservation: heroObservationSchema.nullable().optional(),
+    playedPosition: playedPositionSchema.optional(),
     playedAt: instant,
     mode: z.enum(["ranked", "classic", "unknown"]),
     result: z.enum(["win", "loss", "draw", "unknown"]),
@@ -110,6 +134,26 @@ export const stateSchema = z
       if (m.heroId !== null && !state.heroes.some((h) => h.id === m.heroId))
         ctx.addIssue({ code: "custom", message: "Unknown hero reference." });
     }
+    const battleIds = state.matches.flatMap((match) =>
+      match.battleId == null ? [] : [match.battleId],
+    );
+    if (new Set(battleIds).size !== battleIds.length)
+      ctx.addIssue({ code: "custom", message: "Duplicate Battle ID." });
+    const heroGameIds = state.heroes.flatMap((hero) =>
+      hero.gameId == null ? [] : [hero.gameId],
+    );
+    if (new Set(heroGameIds).size !== heroGameIds.length)
+      ctx.addIssue({ code: "custom", message: "Duplicate verified hero ID." });
+    const heroNames = state.heroes.flatMap((hero) =>
+      [hero.name, ...(hero.aliases ?? [])].map((value) =>
+        value.trim().toLocaleLowerCase(),
+      ),
+    );
+    if (new Set(heroNames).size !== heroNames.length)
+      ctx.addIssue({
+        code: "custom",
+        message: "Duplicate hero name or alias.",
+      });
     if (
       new Set(state.matches.map((m) => Date.parse(m.playedAt))).size !==
       state.matches.length
@@ -344,6 +388,15 @@ export function saveMatch(
     throw new Error(
       "A match is already recorded at this time. Edit it, or check the time before adding.",
     );
+  if (
+    match.battleId !== null &&
+    match.battleId !== undefined &&
+    state.matches.some(
+      (candidate) =>
+        candidate.id !== match.id && candidate.battleId === match.battleId,
+    )
+  )
+    throw new Error("This Battle ID is already recorded in the season.");
   const next = {
     ...state,
     matches: previous
@@ -371,6 +424,82 @@ export function saveMatch(
       : state.audit,
   };
   return stateSchema.parse(next);
+}
+
+export function recordHeroObservation(
+  state: TrackerState,
+  observedName: string,
+  observedGameId: string,
+  newId: string = crypto.randomUUID(),
+) {
+  const heroName = observedName.trim();
+  const gameId = observedGameId.trim();
+  if (!heroName && !gameId)
+    return {
+      state,
+      heroId: null,
+      observation: null,
+    };
+  const byGameId = gameId
+    ? state.heroes.find((hero) => hero.gameId === gameId)
+    : undefined;
+  const normalized = heroName.toLocaleLowerCase();
+  const byName = heroName
+    ? state.heroes.find((hero) =>
+        [hero.name, ...(hero.aliases ?? [])].some(
+          (candidate) => candidate.toLocaleLowerCase() === normalized,
+        ),
+      )
+    : undefined;
+  if (byGameId && byName && byGameId.id !== byName.id)
+    throw new Error("The hero name and verified ID refer to different heroes.");
+  const existing = byGameId ?? byName;
+  if (!existing && !heroName)
+    throw new Error("Enter a hero name with a new verified hero ID.");
+  if (existing?.gameId && gameId && existing.gameId !== gameId)
+    throw new Error("This hero name already has a different verified ID.");
+  const observation = {
+    name: heroName || null,
+    gameId: gameId || null,
+  };
+  if (!existing) {
+    const hero = {
+      id: newId,
+      name: heroName,
+      gameId: gameId || null,
+      aliases: [] as string[],
+    };
+    return {
+      state: stateSchema.parse({ ...state, heroes: [...state.heroes, hero] }),
+      heroId: hero.id,
+      observation,
+    };
+  }
+  const aliases = [...(existing.aliases ?? [])];
+  if (
+    heroName &&
+    heroName.toLocaleLowerCase() !== existing.name.toLocaleLowerCase() &&
+    !aliases.some(
+      (candidate) =>
+        candidate.toLocaleLowerCase() === heroName.toLocaleLowerCase(),
+    )
+  )
+    aliases.push(heroName);
+  const updated = {
+    ...existing,
+    gameId: existing.gameId ?? (gameId || null),
+    aliases,
+  };
+  return {
+    state: stateSchema.parse({
+      ...state,
+      heroes: state.heroes.map((hero) =>
+        hero.id === updated.id ? updated : hero,
+      ),
+    }),
+    heroId: updated.id,
+    observation,
+  };
 }
 export function heroStats(state: TrackerState, matches: Match[]) {
   return state.players
