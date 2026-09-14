@@ -58,6 +58,9 @@ test("local restore and conversion preserve archived observations, history and a
 
 test("additive v2 schema backfills stable season and match records without changing legacy rows", async () => {
   const backup = fixture();
+  const activeMatch = initialState().matches[0]!;
+  backup.workspaces[0]!.state.matches = [activeMatch];
+  backup.history.at(-1)!.state.matches = [activeMatch];
   const db = new PGlite();
   try {
     await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
@@ -93,6 +96,15 @@ test("additive v2 schema backfills stable season and match records without chang
         "utf8",
       ),
     );
+    await db.exec(
+      await readFile(
+        new URL(
+          "../../supabase/migrations/202609140003_tracker_v2_writes.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
     await db.exec("set role service_role");
     const report = await db.query<{
       tracker_backfill_v2: {
@@ -105,7 +117,7 @@ test("additive v2 schema backfills stable season and match records without chang
       workspaceId: account,
       revision: 1,
       seasons: 2,
-      matches: 4,
+      matches: 5,
     });
     const loaded = await db.query<{ tracker_load_v2: unknown }>(
       "select public.tracker_load_v2($1,$2)",
@@ -142,6 +154,79 @@ test("additive v2 schema backfills stable season and match records without chang
         account,
       ]),
       /FORBIDDEN/,
+    );
+    const canonical = readState(backup.workspaces[0]!.state);
+    const changed = {
+      ...canonical,
+      push: { ...canonical.push, targetStars: 125 },
+    };
+    const saved = (
+      await db.query<{ tracker_save_v2: unknown }>(
+        "select public.tracker_save_v2($1,$2,$3,$4::jsonb)",
+        [owner, account, 1, JSON.stringify(changed)],
+      )
+    ).rows[0]!.tracker_save_v2;
+    assert.deepEqual(readState(saved), { ...changed, revision: 2 });
+    assert.deepEqual(
+      readState(
+        (
+          await db.query<{ state: unknown }>(
+            "select state from public.tracker_workspaces where id=$1",
+            [account],
+          )
+        ).rows[0]!.state,
+      ),
+      { ...changed, revision: 2 },
+    );
+    await assert.rejects(
+      db.query("select public.tracker_save_v2($1,$2,$3,$4::jsonb)", [
+        owner,
+        account,
+        1,
+        JSON.stringify(changed),
+      ]),
+      /CONFLICT/,
+    );
+    const legacyNext = writeCompatibleState({
+      ...changed,
+      revision: 2,
+      push: { ...changed.push, targetStars: 130 },
+    });
+    const adapted = (
+      await db.query<{ tracker_save: unknown }>(
+        "select public.tracker_save($1,$2,$3,$4::jsonb)",
+        [owner, account, 2, JSON.stringify(legacyNext)],
+      )
+    ).rows[0]!.tracker_save;
+    assert.equal((adapted as { version: number }).version, 1);
+    const beforeRollover = readState(adapted);
+    const rollover = startSeason(beforeRollover, {
+      ...beforeRollover.push,
+      season: "Third season",
+      startingStars: 2,
+    });
+    const rolled = (
+      await db.query<{ tracker_save_v2: unknown }>(
+        "select public.tracker_save_v2($1,$2,$3,$4::jsonb)",
+        [owner, account, 3, JSON.stringify(rollover)],
+      )
+    ).rows[0]!.tracker_save_v2;
+    assert.deepEqual(readState(rolled), { ...rollover, revision: 4 });
+    const counts = await db.query<{
+      active: number;
+      archived: number;
+      matches: number;
+    }>(
+      "select count(*) filter(where status='active')::int active, count(*) filter(where status='archived')::int archived, (select count(*)::int from public.tracker_matches) matches from public.tracker_seasons",
+    );
+    assert.deepEqual(counts.rows, [{ active: 1, archived: 2, matches: 5 }]);
+    assert.deepEqual(
+      (
+        await db.query<{ revision: number }>(
+          "select revision from public.tracker_history order by revision",
+        )
+      ).rows.map((r) => r.revision),
+      [0, 1, 2, 3, 4],
     );
     await db.exec("reset role; set role authenticated");
     await assert.rejects(

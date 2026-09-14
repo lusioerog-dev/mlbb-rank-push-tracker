@@ -143,7 +143,7 @@ test("both existing members can read the same pinned push and unconfirmed users 
     Response.json({ id: owner, email_confirmed_at: null });
   assert.equal((await handle(req("/tracker"), env, unconfirmed)).status, 403);
 });
-test("versioned API reads canonical state and keeps writes disabled before cutover", async () => {
+test("versioned API reads and saves canonical state through the v2 functions", async () => {
   let loadCalls = 0;
   const canonical = initialState();
   const fetcher: typeof fetch = async (input, init) => {
@@ -163,22 +163,32 @@ test("versioned API reads canonical state and keeps writes disabled before cutov
       loadCalls++;
       return Response.json(canonical);
     }
+    if (url.endsWith("/rpc/tracker_save_v2")) {
+      const body = JSON.parse(String(init?.body));
+      assert.deepEqual(body, {
+        actor: owner,
+        wid: other,
+        expected: 0,
+        next_state: canonical,
+      });
+      return Response.json({ ...canonical, revision: 1 });
+    }
     throw new Error("Unexpected request");
   };
   const loaded = await handle(req("/v2/tracker"), env, fetcher);
   assert.equal(loaded.status, 200);
   assert.deepEqual(await loaded.json(), canonical);
   assert.equal(loadCalls, 1);
-  const blocked = await handle(
+  const saved = await handle(
     req("/v2/tracker", "PUT", canonical),
     env,
     fetcher,
   );
-  assert.equal(blocked.status, 503);
-  assert.match((await blocked.json()).error, /not writable/);
+  assert.equal(saved.status, 200);
+  assert.deepEqual(await saved.json(), { ...canonical, revision: 1 });
   assert.equal(loadCalls, 1);
 });
-test("API maps atomic save conflict to 409 and does not expose backend secrets", async () => {
+test("API maps v2 atomic save conflict to 409 and does not expose backend secrets", async () => {
   const fetcher: typeof fetch = async (input) => {
     const url = String(input);
     if (url.endsWith("/auth/v1/user"))
@@ -194,18 +204,17 @@ test("API maps atomic save conflict to 409 and does not expose backend secrets",
     );
   };
   const result = await handle(
-    req(`/workspaces/${other}`, "PUT", initialState()),
+    req("/v2/tracker", "PUT", initialState()),
     env,
     fetcher,
   );
   assert.equal(result.status, 409);
   assert.ok(!(await result.text()).includes(env.SUPABASE_SERVICE_ROLE_KEY));
 });
-test("API reads existing snapshots and keeps old and new clients compatible without losing records", async () => {
+test("API keeps legacy reads compatible and rejects outdated write clients", async () => {
   const canonical = initialState();
   const legacy = { ...canonical, version: 1, dataset: "real" };
-  let writes = 0;
-  const fetcher: typeof fetch = async (input, init) => {
+  const fetcher: typeof fetch = async (input) => {
     const url = String(input);
     if (url.endsWith("/auth/v1/user"))
       return Response.json({
@@ -216,38 +225,26 @@ test("API reads existing snapshots and keeps old and new clients compatible with
       return Response.json([{ user_id: owner }]);
     if (url.includes("tracker_workspaces?"))
       return Response.json([{ state: legacy }]);
-    if (url.endsWith("/rpc/tracker_save")) {
-      const body = JSON.parse(String(init?.body));
-      assert.deepEqual(body.next_state, legacy);
-      assert.equal(body.expected, 0);
-      assert.equal(body.actor, owner);
-      writes++;
-      return Response.json({ ...body.next_state, revision: 1 });
-    }
     throw new Error("Unexpected request");
   };
   const loaded = await handle(req(`/workspaces/${other}`), env, fetcher);
   assert.equal(loaded.status, 200);
   assert.deepEqual(await loaded.json(), legacy);
-  assert.equal(writes, 0);
   for (const payload of [legacy, canonical]) {
     const saved = await handle(
       req(`/workspaces/${other}`, "PUT", payload),
       env,
       fetcher,
     );
-    assert.equal(saved.status, 200);
-    const wire = await saved.json();
-    assert.deepEqual(wire, { ...legacy, revision: 1 });
-    assert.deepEqual(readState(wire), { ...canonical, revision: 1 });
+    assert.equal(saved.status, 426);
+    assert.match((await saved.json()).error, /outdated/);
   }
   const rejected = await handle(
     req(`/workspaces/${other}`, "PUT", { ...legacy, dataset: "demo" }),
     env,
     fetcher,
   );
-  assert.equal(rejected.status, 400);
-  assert.equal(writes, 2);
+  assert.equal(rejected.status, 426);
 });
 test("PostgreSQL protects rows, saves atomically, retains server audit and consumes invites once", async () => {
   const db = new PGlite();

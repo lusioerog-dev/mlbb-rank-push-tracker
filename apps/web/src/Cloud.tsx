@@ -3,10 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Session } from "@supabase/supabase-js";
 import { z } from "zod";
 import { App } from "./App";
-import {
-  readState,
-  writeCompatibleState,
-} from "../../../packages/tracker/compatibility";
+import { readState } from "../../../packages/tracker/compatibility";
 import type { TrackerState } from "../../../packages/tracker/model";
 
 export interface RemoteStore {
@@ -117,9 +114,8 @@ function Connected({ config }: { config: Config }) {
   if (!ready) return <main className="recovery">Checking your sign-in…</main>;
   const remote: RemoteStore = {
     id: userId ?? "signed-out",
-    load: async () => readState(await api("/tracker")),
-    save: async (state) =>
-      readState(await api("/tracker", "PUT", writeCompatibleState(state))),
+    load: async () => readState(await api("/v2/tracker")),
+    save: async (state) => readState(await api("/v2/tracker", "PUT", state)),
   };
   return (
     <>

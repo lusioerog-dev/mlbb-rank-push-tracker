@@ -95,6 +95,8 @@ export async function handle(
           );
         if (message.includes("FORBIDDEN"))
           throw new HttpError(403, "You do not have access to this tracker.");
+        if (message.includes("NOT_MIGRATED"))
+          throw new HttpError(503, "The tracker upgrade is not ready yet.");
         throw new HttpError(
           503,
           "Shared storage is unavailable. Your changes have not been confirmed.",
@@ -121,6 +123,14 @@ export async function handle(
       throw new HttpError(405, "Method not allowed.");
     if (path === "/workspaces" && request.method !== "GET")
       throw new HttpError(405, "Method not allowed.");
+    if (
+      request.method === "PUT" &&
+      (path === "/tracker" || path === legacyPath)
+    )
+      throw new HttpError(
+        426,
+        "This tracker version is outdated. Reload the website before saving.",
+      );
     let body: unknown;
     if (request.method === "PUT") {
       if (!request.headers.get("Content-Type")?.startsWith("application/json"))
@@ -169,9 +179,14 @@ export async function handle(
         ),
       );
     } else if (path === "/v2/tracker") {
-      throw new HttpError(
-        503,
-        "Version 2 storage is not writable until the production cutover.",
+      const next = readState(body);
+      response = json(
+        await db("rpc/tracker_save_v2", "POST", {
+          actor: user.id,
+          wid,
+          expected: next.revision,
+          next_state: next,
+        }),
       );
     } else if (request.method === "GET") {
       const rows = z
@@ -179,17 +194,7 @@ export async function handle(
         .parse(await db(`tracker_workspaces?id=eq.${wid}&select=state`));
       if (!rows[0]) throw new HttpError(404, "Tracker not found.");
       response = json(writeCompatibleState(readState(rows[0].state)));
-    } else {
-      const next = readState(body);
-      response = json(
-        await db("rpc/tracker_save", "POST", {
-          actor: user.id,
-          wid,
-          expected: next.revision,
-          next_state: writeCompatibleState(next),
-        }),
-      );
-    }
+    } else throw new HttpError(405, "Method not allowed.");
   } catch (error) {
     response =
       error instanceof HttpError

@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
-import { readState } from "../packages/tracker/compatibility";
+import {
+  readState,
+  writeCompatibleState,
+} from "../packages/tracker/compatibility";
 import { backupSchema, rehearseBackup } from "../packages/tracker/rehearsal";
 import { currentRank, stats } from "../packages/tracker/model";
+import { startSeason } from "../packages/tracker/seasons";
 
 const path = process.argv[2];
 const expectedMd5 = process.argv[3];
@@ -55,6 +59,15 @@ try {
       "utf8",
     ),
   );
+  await db.exec(
+    await readFile(
+      new URL(
+        "../supabase/migrations/202609140003_tracker_v2_writes.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
   await db.exec("set role service_role");
   const results = [];
   for (const workspace of backup.workspaces) {
@@ -79,10 +92,73 @@ try {
     );
     assert.deepEqual(currentRank(restored), currentRank(original));
     assert.deepEqual(stats(restored.matches), stats(original.matches));
+    const saved = readState(
+      (
+        await db.query<{ tracker_save_v2: unknown }>(
+          "select public.tracker_save_v2($1,$2,$3,$4::jsonb)",
+          [
+            workspace.owner_id,
+            workspace.id,
+            original.revision,
+            JSON.stringify(original),
+          ],
+        )
+      ).rows[0]!.tracker_save_v2,
+    );
+    await assert.rejects(
+      db.query("select public.tracker_save_v2($1,$2,$3,$4::jsonb)", [
+        workspace.owner_id,
+        workspace.id,
+        original.revision,
+        JSON.stringify(original),
+      ]),
+      /CONFLICT/,
+    );
+    const adapted = readState(
+      (
+        await db.query<{ tracker_save: unknown }>(
+          "select public.tracker_save($1,$2,$3,$4::jsonb)",
+          [
+            workspace.owner_id,
+            workspace.id,
+            saved.revision,
+            JSON.stringify(writeCompatibleState(saved)),
+          ],
+        )
+      ).rows[0]!.tracker_save,
+    );
+    const rehearsalSeason = startSeason(adapted, {
+      ...adapted.push,
+      season: "LOCAL ROLLOVER REHEARSAL",
+    });
+    const rolled = readState(
+      (
+        await db.query<{ tracker_save_v2: unknown }>(
+          "select public.tracker_save_v2($1,$2,$3,$4::jsonb)",
+          [
+            workspace.owner_id,
+            workspace.id,
+            adapted.revision,
+            JSON.stringify(rehearsalSeason),
+          ],
+        )
+      ).rows[0]!.tracker_save_v2,
+    );
+    const rolloverCounts = (
+      await db.query<{ active: number; archived: number; matches: number }>(
+        "select count(*) filter(where status='active')::int active, count(*) filter(where status='archived')::int archived, (select count(*)::int from public.tracker_matches) matches from public.tracker_seasons",
+      )
+    ).rows[0]!;
+    assert.equal(rolled.matches.length, 0);
+    assert.equal(rolloverCounts.matches, original.matches.length);
     results.push({
       backfill,
       rank: currentRank(restored),
       stats: stats(restored.matches),
+      normalSaveRevision: saved.revision,
+      legacyAdapterRevision: adapted.revision,
+      rolloverRevision: rolled.revision,
+      rolloverCounts,
     });
   }
   console.log(
