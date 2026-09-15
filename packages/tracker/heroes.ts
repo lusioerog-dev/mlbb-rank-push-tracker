@@ -814,3 +814,14 @@ export function heroMetadataByGameId(value: string | null | undefined) {
     ? null
     : (HERO_CATALOG.find((hero) => hero.gameId === gameId) ?? null);
 }
+
+export type HeroIdentity = {
+  name: string;
+  gameId?: string | null | undefined;
+};
+
+export function heroDisplayName(hero: HeroIdentity | null | undefined) {
+  return (
+    heroMetadataByGameId(hero?.gameId)?.name ?? hero?.name ?? "Hero unavailable"
+  );
+}

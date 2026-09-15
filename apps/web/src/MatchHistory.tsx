@@ -3,7 +3,8 @@ import type { Match, TrackerState } from "../../../packages/tracker/model";
 import { starChange } from "../../../packages/tracker/model";
 import { playerName } from "../../../packages/tracker/players";
 import { rankLabel } from "../../../packages/tracker/rank-rules";
-import { HeroPortrait, heroDisplayName } from "./HeroPortrait";
+import { heroDisplayName } from "../../../packages/tracker/heroes";
+import { HeroPortrait } from "./HeroPortrait";
 
 const signed = (value: number | null) =>
   value === null ? "—" : `${value > 0 ? "+" : ""}${value}★`;

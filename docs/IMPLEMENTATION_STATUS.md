@@ -4,8 +4,8 @@ Last updated: 15 September 2026 (Asia/Kathmandu)
 
 ## Current phase
 
-Phase 5 — controlled hero metadata and shared portraits. Implementation and
-verification are complete. The next authorized work is Phase 6, but it must not
+Phase 6 — integration and responsive cleanup. Implementation and verification
+are complete. The next authorized work is Phase 7, but it must not
 begin until the user says
 `CONTINUE`.
 
@@ -29,6 +29,9 @@ begin until the user says
 - Phase 5: added a reviewed 133-hero numeric-ID catalog using current Moonton CDN
   base portraits, canonical ID-based name resolution, one resilient portrait
   component, and consistent Hero Performance/Match History rendering.
+- Phase 6: reviewed the integrated desktop and phone layouts, consolidated shared
+  hero naming, made adjacent portraits decorative for assistive technology, and
+  removed only CSS rules confirmed to have no remaining UI consumers.
 
 ## Audit summary
 
@@ -239,6 +242,15 @@ begin until the user says
   use the shared hero presentation throughout tracker history and analytics.
 - Phase 5: `docs/hero-metadata.md` — documents source, attribution, refresh steps,
   fallback behavior and the no-migration decision.
+- Phase 6: `packages/tracker/heroes.ts` and `apps/web/src/HeroPortrait.tsx` — keep
+  canonical hero naming in the shared tracker package, leave the component as a
+  component-only module, and avoid repeating adjacent hero names to screen readers.
+- Phase 6: `Performance.tsx`, `MatchHistory.tsx` and `Settings.tsx` — consume the
+  shared hero-name helper directly.
+- Phase 6: `apps/web/src/style.css` — removes confirmed unused header, navigation,
+  result, tip and icon-button rules plus their obsolete responsive overrides.
+- Phase 6: `docs/IMPLEMENTATION_STATUS.md` — records the integration checkpoint
+  and Phase 7 handoff.
 
 ## Database migrations made
 
@@ -249,6 +261,7 @@ begin until the user says
   support the engine and reset draft.
 - Phase 5 adds no database migration. Global versioned catalog metadata is not
   duplicated into private workspace rows; existing `game_id` remains the key.
+- Phase 6 adds no database migration.
 - Existing production migrations inspected: `202609130001_shared_tracker.sql`
   through `202609140005_rank_checkpoints.sql`.
 
@@ -288,6 +301,13 @@ begin until the user says
   and names, every portrait uses HTTPS on Moonton's CDN, and the current
   Benedetta base portrait returned HTTP 200 image/png. Full responsive image and
   forced load-error interaction remains in the Phase 7 browser pass.
+- Phase 6 local desktop inspection — passed: Overview and Hero Performance retain
+  the rank, contribution, graph and hero data hierarchy with canonical portraits.
+- Phase 6 local 390 × 844 inspection — passed: Match History filters and six-item
+  bottom navigation fit, known portraits render, unknown heroes fall back cleanly,
+  and Lane Performance remains readable without obscured content.
+- Phase 6 visual inspection used local fixture data only; the production backend
+  configuration was restored exactly and no production writes were made.
 
 ## Known issues
 
@@ -341,13 +361,18 @@ begin until the user says
 - Store global portrait metadata in the versioned application catalog rather
   than adding redundant workspace/database columns. Use one shared component for
   known, unknown and load-failed hero images.
+- Treat hero portraits as decorative when the canonical name is already adjacent,
+  preventing duplicate screen-reader announcements while retaining visible
+  unknown/load-error fallbacks.
+- Remove integration-era CSS only after confirming there are no TSX consumers;
+  preserve all current product flows and domain decisions.
 
 ## Exact next task
 
-Phase 6 only: review the complete tracker integration and responsive layout;
-preserve the fixed two-player, Ranked-only, Battle-ID, position, contribution and
-graph decisions. Remove only confirmed obsolete UI, reduce unnecessary copy,
-and polish cross-page consistency without starting the Phase 7 test campaign.
+Phase 7 only: run the full automated and manual test campaign, including auth and
+responsive layout checks, rank and hero behavior, database boundaries, and—after
+the committed Realtime migration is available in a suitable environment—two-session
+insert/update/delete plus visibility/focus recovery verification.
 
 ## Commands needed to resume
 
@@ -385,3 +410,7 @@ npm run format:check
 - Phase 5 starting commit: `5864a26`.
 - Phase 5 checkpoint: the top commit with message
   `phase 5: add hero metadata and portraits`.
+- Phase 5 commit: `aa1098e` (`phase 5: add hero metadata and portraits`).
+- Phase 6 starting commit: `aa1098e`.
+- Phase 6 checkpoint: the top commit with message
+  `phase 6: integrate and polish tracker`.

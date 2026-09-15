@@ -17,7 +17,8 @@ import {
   positionPerformance,
 } from "../../../packages/tracker/model";
 import { PlayerScope } from "./PlayerScope";
-import { HeroPortrait, heroDisplayName } from "./HeroPortrait";
+import { heroDisplayName } from "../../../packages/tracker/heroes";
+import { HeroPortrait } from "./HeroPortrait";
 
 const percentage = (value: number | null) =>
   value === null ? "—" : `${value.toFixed(1)}%`;

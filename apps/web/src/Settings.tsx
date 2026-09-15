@@ -11,7 +11,7 @@ import {
   startSeason,
 } from "../../../packages/tracker/seasons";
 import { playerName } from "../../../packages/tracker/players";
-import { heroDisplayName } from "./HeroPortrait";
+import { heroDisplayName } from "../../../packages/tracker/heroes";
 import {
   RANK_RULES,
   getSeasonResetSuggestion,

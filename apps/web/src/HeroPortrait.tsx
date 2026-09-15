@@ -1,16 +1,9 @@
 import { useEffect, useState } from "react";
-import { heroMetadataByGameId } from "../../../packages/tracker/heroes";
-
-export type HeroIdentity = {
-  name: string;
-  gameId?: string | null | undefined;
-};
-
-export function heroDisplayName(hero: HeroIdentity | null | undefined) {
-  return (
-    heroMetadataByGameId(hero?.gameId)?.name ?? hero?.name ?? "Hero unavailable"
-  );
-}
+import {
+  heroDisplayName,
+  heroMetadataByGameId,
+  type HeroIdentity,
+} from "../../../packages/tracker/heroes";
 
 export function HeroPortrait({
   hero,
@@ -28,14 +21,14 @@ export function HeroPortrait({
       {metadata && !failed ? (
         <img
           src={metadata.portraitUrl}
-          alt={`${name} portrait`}
+          alt=""
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
         />
       ) : (
-        <span aria-label={`${name} portrait unavailable`}>
+        <span aria-hidden="true">
           {hero ? name.slice(0, 2).toUpperCase() : "?"}
         </span>
       )}
