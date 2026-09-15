@@ -117,96 +117,70 @@ function Connected({ config }: { config: Config }) {
     load: async () => readState(await api("/v2/tracker")),
     save: async (state) => readState(await api("/v2/tracker", "PUT", state)),
   };
+  if (session) return <App key={remote.id} remote={remote} />;
   return (
-    <>
-      <section className="cloud-bar panel">
-        <strong>MLBB Pilot Push</strong>
-        {session && (
-          <>
-            <span>{session.user.email}</span>
-            <button
-              disabled={busy}
-              onClick={() =>
-                void run(async () => {
-                  const { error } = await client.auth.signOut();
-                  if (error) throw error;
-                })
-              }
-            >
-              Sign out
-            </button>
-          </>
-        )}
-        {error && <p role="alert">{error}</p>}
-      </section>
-      {!session ? (
-        <main className="recovery panel">
-          <h1>MLBB Pilot Push</h1>
-          <p>Sign in to the shared push.</p>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              const data = new FormData(event.currentTarget);
+    <main className="recovery panel">
+      <h1>MLBB Pilot Push</h1>
+      <p>Sign in to the shared push.</p>
+      {error && <p role="alert">{error}</p>}
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          const data = new FormData(event.currentTarget);
+          void run(async () => {
+            const { error } = await client.auth.signInWithPassword({
+              email: String(data.get("email")),
+              password: String(data.get("password")),
+            });
+            if (error) throw error;
+          });
+        }}
+      >
+        <label>
+          Email
+          <input name="email" type="email" required autoComplete="email" />
+        </label>
+        <label>
+          Password
+          <input
+            name="password"
+            type="password"
+            required
+            minLength={8}
+            autoComplete="current-password"
+          />
+        </label>
+        <button disabled={busy} className="primary">
+          Sign in
+        </button>
+        {config.emailAuthEnabled && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={(event) => {
+              const email = event.currentTarget.form!.elements.namedItem(
+                "email",
+              ) as HTMLInputElement;
+              if (!email.reportValidity()) return;
               void run(async () => {
-                const { error } = await client.auth.signInWithPassword({
-                  email: String(data.get("email")),
-                  password: String(data.get("password")),
+                const { error } = await client.auth.signInWithOtp({
+                  email: email.value,
+                  options: {
+                    shouldCreateUser: false,
+                    emailRedirectTo: window.location.origin,
+                  },
                 });
                 if (error) throw error;
+                setError(
+                  "If this account exists, check your email for a sign-in link.",
+                );
               });
             }}
           >
-            <label>
-              Email
-              <input name="email" type="email" required autoComplete="email" />
-            </label>
-            <label>
-              Password
-              <input
-                name="password"
-                type="password"
-                required
-                minLength={8}
-                autoComplete="current-password"
-              />
-            </label>
-            <button disabled={busy} className="primary">
-              Sign in
-            </button>
-            {config.emailAuthEnabled && (
-              <>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={(event) => {
-                    const email = event.currentTarget.form!.elements.namedItem(
-                      "email",
-                    ) as HTMLInputElement;
-                    if (!email.reportValidity()) return;
-                    void run(async () => {
-                      const { error } = await client.auth.signInWithOtp({
-                        email: email.value,
-                        options: {
-                          shouldCreateUser: false,
-                          emailRedirectTo: window.location.origin,
-                        },
-                      });
-                      if (error) throw error;
-                      setError(
-                        "If this account exists, check your email for a sign-in link.",
-                      );
-                    });
-                  }}
-                >
-                  Email me a sign-in link
-                </button>
-              </>
-            )}
-          </form>
-        </main>
-      ) : (
-        <App key={remote.id} remote={remote} />
-      )}
-    </>
+            Email me a sign-in link
+          </button>
+        )}
+      </form>
+    </main>
   );
 }

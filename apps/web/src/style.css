@@ -1,13 +1,5 @@
 @import "tailwindcss";
 
-.cloud-bar {
-  margin: 12px;
-  padding: 16px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-}
 .graph-toggle {
   display: flex;
   gap: 4px;
@@ -31,21 +23,6 @@
 .progression .section-heading {
   flex-wrap: wrap;
   gap: 12px;
-}
-.cloud-bar form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.cloud-bar input {
-  max-width: 100%;
-  min-width: 180px;
-}
-.cloud-bar label {
-  max-width: 100%;
-}
-.cloud-bar p {
-  flex-basis: 100%;
 }
 .recovery form {
   display: grid;
@@ -285,7 +262,7 @@ small {
 main {
   max-width: 1510px;
   margin: 0 auto;
-  padding: 42px 38px 12px;
+  padding: 30px 38px 12px;
 }
 .page-heading {
   display: flex;
@@ -1099,7 +1076,7 @@ hr {
 }
 @media (min-width: 1600px) {
   main {
-    padding-top: 45px;
+    padding-top: 32px;
   }
   .rank-card {
     padding: 28px 35px;

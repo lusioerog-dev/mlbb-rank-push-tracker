@@ -4,15 +4,18 @@ Last updated: 15 September 2026 (Asia/Kathmandu)
 
 ## Current phase
 
-Phase 0 — repository, deployment, data-flow and UI audit. Audit work is complete;
-validation and the phase checkpoint commit are recorded below. No product code or
-production data was changed in this phase.
+Phase 1 — remove the broken top account bar. Implementation and verification are
+complete. The next authorized work is Phase 2, but it must not begin until the
+user says `CONTINUE`.
 
 ## Completed phases
 
 - Phase 0: audited the relevant application, domain, API, migration, test and
   deployment code; reviewed the existing architecture/release records; and
   inspected the signed-in production Overview and Hero Performance screens.
+- Phase 1: removed the authenticated email/Sign out bar from every tracker page,
+  removed its obsolete styles and tightened the desktop content offset. The
+  standalone sign-in, session gate and connection-recovery screens remain.
 
 ## Audit summary
 
@@ -175,11 +178,17 @@ production data was changed in this phase.
 
 ## Files changed
 
-- `docs/IMPLEMENTATION_STATUS.md` — added this Phase 0 audit/checkpoint.
+- Phase 0: `docs/IMPLEMENTATION_STATUS.md` — added the audit/checkpoint.
+- Phase 1: `apps/web/src/Cloud.tsx` — signed-in sessions now render the protected
+  tracker directly; signed-out authentication and errors remain standalone.
+- Phase 1: `apps/web/src/style.css` — removed unused `.cloud-bar` rules and reduced
+  the desktop top padding from 42/45 px to 30/32 px.
+- Phase 1: `docs/IMPLEMENTATION_STATUS.md` — recorded the completed phase and the
+  continuation point.
 
 ## Database migrations made
 
-- None in Phase 0.
+- None in Phases 0 or 1.
 - Existing production migrations inspected: `202609130001_shared_tracker.sql`
   through `202609140005_rank_checkpoints.sql`.
 
@@ -193,11 +202,20 @@ production data was changed in this phase.
 - Manual production audit — passed for read-only loading/navigation; confirmed the
   header overlap and initial-only hero treatment. Auth mutations and database
   writes were intentionally not exercised in this audit phase.
+- Phase 1 local desktop inspection — passed: content begins at the top of the
+  sidebar-aligned workspace with no account bar, email, Sign out control or empty
+  header band.
+- Phase 1 local 390 × 844 inspection — passed: content starts at the top, the
+  five-item bottom navigation remains usable and no removed-header gap remains.
+- Signed-out behavior remains guarded by `Cloud.tsx`; typechecking confirms the
+  password and optional email-link paths remain wired. Signing out cannot be
+  manually exercised until its required Account-page destination is added in
+  Phase 2.
 
 ## Known issues
 
-- Broken global account bar and excess top whitespace remain until Phase 1.
-- No Account page; Sign out exists only in the broken bar.
+- No Account page or signed-in Sign out control exists until Phase 2. This is the
+  deliberate short phase boundary after removing the broken global control.
 - Manual Refresh and 15-second polling remain; no Supabase Realtime integration.
 - Rank rules remain deliberately incomplete at unverified reset/placement/demotion
   boundaries, and the main rank visual is generic.
@@ -219,15 +237,18 @@ production data was changed in this phase.
   maps; preserve unknown numeric IDs and provide a non-crashing visual fallback.
 - Implement Realtime as an invalidation/refetch signal so the Worker/domain read
   path remains canonical and all derived views update together.
+- Keep authenticated account controls out of the global tracker shell. Phase 1
+  removes them; Phase 2 will restore Sign out in the dedicated Account page.
 
 ## Exact next task
 
-Phase 1 only: refactor `apps/web/src/Cloud.tsx`, `apps/web/src/App.tsx` and
-`apps/web/src/style.css` to remove the signed-in global `.cloud-bar`, eliminate
-the resulting top whitespace/overlap, and preserve signed-out authentication,
-error handling, session protection and existing tracker behavior. Add the
-smallest appropriate regression coverage, verify desktop and phone layouts, run
-all checks, update this file, commit the phase separately, report, and stop.
+Phase 2 only: add a dedicated Account page and sidebar destination. Pass the
+authenticated email, available identity/provider information and a working Sign
+out action from `Cloud.tsx` into `App.tsx` without reintroducing a global header.
+Keep Settings tracker-only, retain the shared-storage indicator, and make the six
+destinations usable on desktop and mobile. Run all checks, manually verify the
+Account page and responsive navigation, update this file, commit separately,
+report, and stop.
 
 ## Commands needed to resume
 
@@ -245,4 +266,7 @@ npm run format:check
 
 - Branch: `codex/phase-1b-private-push`
 - Phase 0 starting commit: `c5d1e148eb2ac98fb57ff282a0f7ccebc2b65823`
-- Current phase commit: recorded after the Phase 0 checkpoint commit.
+- Phase 0 commit: `28c9cc7` (`docs: audit tracker redesign phase 0`).
+- Phase 1 starting commit: `28c9cc75055b35c4212e525833751bba81220e5a`.
+- Phase 1 checkpoint: the top commit with message
+  `phase 1: remove global account header`.
