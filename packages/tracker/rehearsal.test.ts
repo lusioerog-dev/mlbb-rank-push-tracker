@@ -391,3 +391,24 @@ test("migration refuses a malformed archive instead of silently losing it", () =
   });
   assert.throws(() => splitSeasons(account, state));
 });
+
+test("realtime migration limits match events to authenticated workspace members", async () => {
+  const migration = await readFile(
+    new URL(
+      "../../supabase/migrations/202609150001_realtime_match_updates.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(migration, /security definer set search_path = ''/);
+  assert.match(migration, /workspace_id = wid and user_id = auth\.uid\(\)/);
+  assert.match(
+    migration,
+    /create policy tracker_matches_member_realtime[\s\S]*for select to authenticated/,
+  );
+  assert.match(
+    migration,
+    /alter publication supabase_realtime add table public\.tracker_matches/,
+  );
+  assert.doesNotMatch(migration, /grant (insert|update|delete)/i);
+});

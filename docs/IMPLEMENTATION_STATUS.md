@@ -4,8 +4,8 @@ Last updated: 15 September 2026 (Asia/Kathmandu)
 
 ## Current phase
 
-Phase 2 — dedicated Account page. Implementation and verification are complete.
-The next authorized work is Phase 3, but it must not begin until the user says
+Phase 3 — passive Realtime synchronization. Implementation and verification are
+complete. The next authorized work is Phase 4, but it must not begin until the user says
 `CONTINUE`.
 
 ## Completed phases
@@ -19,6 +19,9 @@ The next authorized work is Phase 3, but it must not begin until the user says
 - Phase 2: added a dedicated authenticated Account page with email, sign-in
   provider, shared-session status and Sign out; separated tracker and account
   navigation; and fitted all six destinations into the phone bottom bar.
+- Phase 3: removed manual Refresh and 15-second polling; added one member-scoped
+  Supabase match subscription, coalesced canonical refetches, focus/visibility
+  recovery, draft-safe deferred application and complete listener cleanup.
 
 ## Audit summary
 
@@ -197,10 +200,21 @@ The next authorized work is Phase 3, but it must not begin until the user says
 - Phase 2: `apps/web/src/style.css` — added Account presentation, desktop nav
   separation and six-item mobile navigation layout.
 - Phase 2: `docs/IMPLEMENTATION_STATUS.md` — recorded completion and Phase 3 handoff.
+- Phase 3: `apps/web/src/Cloud.tsx` — added one stable Supabase Realtime
+  subscription to normalized match changes and cleanup on session/app teardown.
+- Phase 3: `apps/web/src/App.tsx` — removed Refresh/polling and added coalesced
+  refetch, focus/visibility recovery and deferred application while editing.
+- Phase 3: `supabase/migrations/202609150001_realtime_match_updates.sql` — grants
+  member-scoped read access needed for Realtime and publishes match changes.
+- Phase 3: `packages/tracker/rehearsal.test.ts` — verifies the migration's
+  membership policy, publication and read-only browser grant boundary.
+- Phase 3: `docs/IMPLEMENTATION_STATUS.md` — recorded completion and Phase 4 handoff.
 
 ## Database migrations made
 
 - None in Phases 0, 1 or 2.
+- Phase 3 adds `202609150001_realtime_match_updates.sql`. It is committed but not
+  applied to production in this implementation checkpoint.
 - Existing production migrations inspected: `202609130001_shared_tracker.sql`
   through `202609140005_rank_checkpoints.sql`.
 
@@ -208,7 +222,7 @@ The next authorized work is Phase 3, but it must not begin until the user says
 
 - `npm run typecheck` — passed.
 - `npm run lint` — passed.
-- `npm test` — passed, 46 tests.
+- `npm test` — passed, 47 tests.
 - `npm run build` — passed; existing Vite large-chunk warning remains.
 - `npm run format:check` — passed.
 - Manual production audit — passed for read-only loading/navigation; confirmed the
@@ -229,10 +243,15 @@ The next authorized work is Phase 3, but it must not begin until the user says
 - The Sign out button invokes the real `client.auth.signOut()` path and reports a
   failure without hiding the session. A live click was intentionally not made
   because this phase was not deployed and the local visual fixture used a no-op.
+- Phase 3 source/UI verification — passed: the ordinary authenticated page has no
+  Refresh action or polling interval; initial loading and recovery-only Reload
+  controls remain. Two-session production delivery awaits migration/deployment
+  and the Phase 7 integration pass.
 
 ## Known issues
 
-- Manual Refresh and 15-second polling remain; no Supabase Realtime integration.
+- The Phase 3 Realtime migration and frontend are not yet deployed, so production
+  continues to run the prior build until the release workflow is authorized.
 - Rank rules remain deliberately incomplete at unverified reset/placement/demotion
   boundaries, and the main rank visual is generic.
 - No verified current-base hero portrait mapping; hero UI uses initials.
@@ -260,16 +279,20 @@ The next authorized work is Phase 3, but it must not begin until the user says
   configuration.
 - Keep Account conditional on an authenticated cloud session; local browser mode
   does not fabricate an account destination.
+- Use `tracker_matches` changes only as invalidation signals; refetch the canonical
+  state through the authenticated Worker rather than constructing client state
+  from Realtime payloads.
+- Grant authenticated browsers member-scoped SELECT only. Keep all match writes
+  behind the Worker/service-role transaction and defer incoming revisions while
+  a match form or Settings draft is open.
 
 ## Exact next task
 
-Phase 3 only: remove the manual Refresh button and replace polling with a single,
-cleaned-up Supabase Realtime invalidation subscription for relevant ranked-match
-data. Refetch canonical application state without a browser reload; coalesce
-events, preserve active drafts, add visibility/focus recovery and prevent
-duplicate subscriptions or request storms. Add focused tests for the refetch
-coordinator where practical, manually verify connection/UI behavior, run all
-checks, update this file, commit separately, report, and stop.
+Phase 4 only: verify current MLBB rank rules against current authoritative or
+well-supported sources before changing behavior. Document verified rules versus
+assumptions, evolve the centralized engine/state/display API, add boundary,
+reset and override tests, and implement the primary rank-card treatment without
+inventing uncertain placement or demotion behavior.
 
 ## Commands needed to resume
 
@@ -295,3 +318,7 @@ npm run format:check
 - Phase 2 starting commit: `a4bb455a4b1a325d2921df50701b694c8b6258f2`.
 - Phase 2 checkpoint: the top commit with message
   `phase 2: add dedicated account page`.
+- Phase 2 commit: `66e645f` (`phase 2: add dedicated account page`).
+- Phase 3 starting commit: `66e645fb030c06b4eb415bb02c72435ca4be0ab6`.
+- Phase 3 checkpoint: the top commit with message
+  `phase 3: add realtime tracker sync`.

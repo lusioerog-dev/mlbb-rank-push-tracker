@@ -92,8 +92,14 @@ export function App({
   const [graphMode, setGraphMode] = useState<"day" | "game">("day");
   const file = useRef<HTMLInputElement>(null);
   const saving = useRef(false);
-  const [reload, setReload] = useState(0);
+  const stateRef = useRef<TrackerState | null>(null);
+  const editingRef = useRef(editing);
+  const pageRef = useRef(page);
+  const pendingRemote = useRef<TrackerState | null>(null);
   const shared = Boolean(remote);
+  stateRef.current = state;
+  editingRef.current = editing;
+  pageRef.current = page;
   useEffect(() => {
     let cancelled = false;
     setState(null);
@@ -123,7 +129,7 @@ export function App({
       cancelled = true;
     };
     // The parent keys this component by user and workspace; token refresh must not reload forms.
-  }, [reload]);
+  }, [shared, remote]);
   useEffect(() => {
     if (shared) return;
     const handler = (e: StorageEvent) => {
@@ -136,36 +142,84 @@ export function App({
     return () => window.removeEventListener("storage", handler);
   }, [shared]);
   useEffect(() => {
-    if (!shared || !remote || !state) return;
+    if (!shared || !remote) return;
     let cancelled = false;
+    let timer: number | undefined;
+    let inFlight = false;
+    let queued = false;
     const refresh = async () => {
-      if (saving.current || document.visibilityState === "hidden") return;
+      timer = undefined;
+      if (document.visibilityState === "hidden") return;
+      if (saving.current) {
+        timer = window.setTimeout(() => void refresh(), 500);
+        return;
+      }
+      if (inFlight) {
+        queued = true;
+        return;
+      }
+      inFlight = true;
       try {
         const latest = await remote.load();
         if (cancelled || saving.current) return;
-        if (latest.revision > state.revision) {
-          if (editing !== undefined || page === "settings")
+        const current = stateRef.current;
+        if (current && latest.revision > current.revision) {
+          if (
+            editingRef.current !== undefined ||
+            pageRef.current === "settings"
+          ) {
+            pendingRemote.current = latest;
             setMessage(
-              "Your teammate saved changes. Finish or copy your draft, then refresh shared data before saving.",
+              "Your teammate saved changes. This view will sync when you finish the current draft.",
             );
-          else
-            setState((current) =>
-              current && latest.revision > current.revision ? latest : current,
-            );
+          } else {
+            setState(latest);
+            setMessage("Live update applied.");
+          }
         }
       } catch {
         if (!cancelled)
           setMessage(
-            "Shared refresh is unavailable. Check your connection; new saves still need server confirmation.",
+            "Live sync is temporarily unavailable. It will retry when this tab becomes active.",
           );
+      } finally {
+        inFlight = false;
+        if (queued && !cancelled) {
+          queued = false;
+          schedule(150);
+        }
       }
     };
-    const interval = window.setInterval(() => void refresh(), 15000);
+    const schedule = (delay = 150) => {
+      if (cancelled) return;
+      if (timer !== undefined) window.clearTimeout(timer);
+      timer = window.setTimeout(() => void refresh(), delay);
+    };
+    const unsubscribe = remote.subscribe(() => schedule());
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") schedule(0);
+    };
+    const onFocus = () => schedule(0);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      if (timer !== undefined) window.clearTimeout(timer);
+      unsubscribe();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
     };
-  }, [shared, remote, state, editing, page]);
+  }, [shared, remote]);
+  useEffect(() => {
+    const latest = pendingRemote.current;
+    if (editing === undefined && page !== "settings" && latest) {
+      pendingRemote.current = null;
+      setState((current) =>
+        current && latest.revision > current.revision ? latest : current,
+      );
+      setMessage("Live update applied.");
+    }
+  }, [editing, page]);
   async function save(next: TrackerState) {
     if (!state) return;
     if (saving.current) throw new Error("A save is already in progress.");
@@ -333,22 +387,6 @@ export function App({
             </div>
             {page !== "account" && (
               <div className="page-actions">
-                {shared && (
-                  <button
-                    className="quiet-button"
-                    onClick={() => {
-                      if (
-                        !saving.current &&
-                        window.confirm(
-                          "Refresh shared data? Unsaved form changes will be discarded.",
-                        )
-                      )
-                        setReload(reload + 1);
-                    }}
-                  >
-                    Refresh
-                  </button>
-                )}
                 <button className="primary" onClick={() => setEditing(null)}>
                   <Plus size={18} /> Record Ranked
                 </button>

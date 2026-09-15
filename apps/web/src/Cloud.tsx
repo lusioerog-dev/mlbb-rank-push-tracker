@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import type { Session } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -11,6 +11,7 @@ export interface RemoteStore {
   id: string;
   load(): Promise<TrackerState>;
   save(state: TrackerState): Promise<TrackerState>;
+  subscribe(onChange: () => void): () => void;
 }
 const configSchema = z.object({
   supabaseUrl: z.url(),
@@ -65,29 +66,28 @@ function Connected({ config }: { config: Config }) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  async function api(
-    path: string,
-    method = "GET",
-    body?: unknown,
-  ): Promise<unknown> {
-    const { data, error } = await client.auth.getSession();
-    if (error || !data.session) throw new Error("Please sign in again.");
-    const result = await fetch(`${config.apiUrl.replace(/\/$/, "")}${path}`, {
-      method,
-      headers: {
-        Authorization: `Bearer ${data.session.access_token}`,
-        "Content-Type": "application/json",
-      },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      signal: AbortSignal.timeout(20000),
-    });
-    const value = await result.json();
-    if (!result.ok)
-      throw new Error(
-        typeof value.error === "string" ? value.error : "Request failed.",
-      );
-    return value;
-  }
+  const api = useCallback(
+    async (path: string, method = "GET", body?: unknown): Promise<unknown> => {
+      const { data, error } = await client.auth.getSession();
+      if (error || !data.session) throw new Error("Please sign in again.");
+      const result = await fetch(`${config.apiUrl.replace(/\/$/, "")}${path}`, {
+        method,
+        headers: {
+          Authorization: `Bearer ${data.session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        signal: AbortSignal.timeout(20000),
+      });
+      const value = await result.json();
+      if (!result.ok)
+        throw new Error(
+          typeof value.error === "string" ? value.error : "Request failed.",
+        );
+      return value;
+    },
+    [client, config.apiUrl],
+  );
   useEffect(() => {
     const { data } = client.auth.onAuthStateChange((_event, next) => {
       setSession(next);
@@ -112,12 +112,28 @@ function Connected({ config }: { config: Config }) {
       setBusy(false);
     }
   }
+  const remote = useMemo<RemoteStore>(
+    () => ({
+      id: userId ?? "signed-out",
+      load: async () => readState(await api("/v2/tracker")),
+      save: async (state) => readState(await api("/v2/tracker", "PUT", state)),
+      subscribe: (onChange) => {
+        const channel = client
+          .channel(`tracker-matches:${userId ?? "signed-out"}`)
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "tracker_matches" },
+            onChange,
+          )
+          .subscribe();
+        return () => {
+          void client.removeChannel(channel);
+        };
+      },
+    }),
+    [api, client, userId],
+  );
   if (!ready) return <main className="recovery">Checking your sign-in…</main>;
-  const remote: RemoteStore = {
-    id: userId ?? "signed-out",
-    load: async () => readState(await api("/v2/tracker")),
-    save: async (state) => readState(await api("/v2/tracker", "PUT", state)),
-  };
   if (session) {
     const account: AccountSession = {
       email: session.user.email ?? "Email unavailable",
