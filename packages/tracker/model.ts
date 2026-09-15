@@ -10,6 +10,7 @@ import {
   RANK_RULES,
 } from "./rank-rules";
 import type { RankPosition } from "./rank-rules";
+import { heroMetadataByGameId, normalizeHeroGameId } from "./heroes";
 
 const id = z.string().min(1).max(100);
 const name = z.string().trim().min(1).max(80);
@@ -154,7 +155,7 @@ export const stateSchema = z
     if (new Set(battleIds).size !== battleIds.length)
       ctx.addIssue({ code: "custom", message: "Duplicate Battle ID." });
     const heroGameIds = state.heroes.flatMap((hero) =>
-      hero.gameId == null ? [] : [hero.gameId],
+      hero.gameId == null ? [] : [normalizeHeroGameId(hero.gameId)],
     );
     if (new Set(heroGameIds).size !== heroGameIds.length)
       ctx.addIssue({ code: "custom", message: "Duplicate verified hero ID." });
@@ -528,6 +529,8 @@ export function recordHeroObservation(
 ) {
   const heroName = observedName.trim();
   const gameId = observedGameId.trim();
+  const normalizedGameId = normalizeHeroGameId(gameId);
+  const metadata = heroMetadataByGameId(gameId);
   if (!heroName && !gameId)
     return {
       state,
@@ -535,7 +538,9 @@ export function recordHeroObservation(
       observation: null,
     };
   const byGameId = gameId
-    ? state.heroes.find((hero) => hero.gameId === gameId)
+    ? state.heroes.find(
+        (hero) => normalizeHeroGameId(hero.gameId) === normalizedGameId,
+      )
     : undefined;
   const normalized = heroName.toLocaleLowerCase();
   const byName = heroName
@@ -548,20 +553,29 @@ export function recordHeroObservation(
   if (byGameId && byName && byGameId.id !== byName.id)
     throw new Error("The hero name and verified ID refer to different heroes.");
   const existing = byGameId ?? byName;
-  if (!existing && !heroName)
+  if (!existing && !heroName && !metadata)
     throw new Error("Enter a hero name with a new verified hero ID.");
-  if (existing?.gameId && gameId && existing.gameId !== gameId)
+  if (
+    existing?.gameId &&
+    gameId &&
+    normalizeHeroGameId(existing.gameId) !== normalizedGameId
+  )
     throw new Error("This hero name already has a different verified ID.");
   const observation = {
     name: heroName || null,
     gameId: gameId || null,
   };
   if (!existing) {
+    const canonicalName = metadata?.name ?? heroName;
     const hero = {
       id: newId,
-      name: heroName,
+      name: canonicalName,
       gameId: gameId || null,
-      aliases: [] as string[],
+      aliases:
+        heroName &&
+        heroName.toLocaleLowerCase() !== canonicalName.toLocaleLowerCase()
+          ? [heroName]
+          : ([] as string[]),
     };
     return {
       state: stateSchema.parse({ ...state, heroes: [...state.heroes, hero] }),
@@ -570,6 +584,15 @@ export function recordHeroObservation(
     };
   }
   const aliases = [...(existing.aliases ?? [])];
+  if (
+    metadata &&
+    existing.name.toLocaleLowerCase() !== metadata.name.toLocaleLowerCase() &&
+    !aliases.some(
+      (candidate) =>
+        candidate.toLocaleLowerCase() === existing.name.toLocaleLowerCase(),
+    )
+  )
+    aliases.push(existing.name);
   if (
     heroName &&
     heroName.toLocaleLowerCase() !== existing.name.toLocaleLowerCase() &&
@@ -581,6 +604,7 @@ export function recordHeroObservation(
     aliases.push(heroName);
   const updated = {
     ...existing,
+    name: metadata?.name ?? existing.name,
     gameId: existing.gameId ?? (gameId || null),
     aliases,
   };

@@ -148,6 +148,31 @@ test("battle, hero and played-position identity preserve exact observations", ()
     observation: null,
   });
 });
+test("known numeric hero IDs resolve to the controlled canonical hero", () => {
+  const state = initialState();
+  const resolved = recordHeroObservation(
+    state,
+    "Bene",
+    "00097",
+    "hero-benedetta",
+  );
+  assert.deepEqual(resolved.state.heroes[0], {
+    id: "hero-benedetta",
+    name: "Benedetta",
+    gameId: "00097",
+    aliases: ["Bene"],
+  });
+  assert.equal(resolved.heroId, "hero-benedetta");
+  assert.throws(() =>
+    stateSchema.parse({
+      ...state,
+      heroes: [
+        { id: "one", name: "Benedetta", gameId: "97" },
+        { id: "two", name: "Bene", gameId: "00097" },
+      ],
+    }),
+  );
+});
 test("runtime validation rejects malformed imports and broken references", () => {
   const state = initialState();
   assert.throws(

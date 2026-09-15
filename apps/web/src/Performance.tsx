@@ -17,6 +17,7 @@ import {
   positionPerformance,
 } from "../../../packages/tracker/model";
 import { PlayerScope } from "./PlayerScope";
+import { HeroPortrait, heroDisplayName } from "./HeroPortrait";
 
 const percentage = (value: number | null) =>
   value === null ? "—" : `${value.toFixed(1)}%`;
@@ -46,6 +47,7 @@ function PerformanceTable({
     winRate: number | null;
     averageKda: number | null;
     Icon?: typeof Swords;
+    hero?: TrackerState["heroes"][number];
   }>;
   kind: "hero" | "position";
 }) {
@@ -71,13 +73,13 @@ function PerformanceTable({
         return (
           <div className="performance-row" role="row" key={row.id}>
             <div className="performance-identity" role="cell">
-              <span className={`performance-icon ${kind}`}>
-                {Icon ? (
+              {Icon ? (
+                <span className="performance-icon position">
                   <Icon size={18} />
-                ) : (
-                  row.label.slice(0, 2).toUpperCase()
-                )}
-              </span>
+                </span>
+              ) : (
+                <HeroPortrait hero={row.hero} className="performance-icon" />
+              )}
               <strong>{row.label}</strong>
             </div>
             <span role="cell" data-label="Games">
@@ -118,9 +120,10 @@ export function PerformancePage({
   const rows =
     kind === "hero"
       ? heroPerformance(state, scoped).map((row) => ({
-          id: row.hero.id,
-          label: row.hero.name,
           ...row,
+          id: row.hero.id,
+          label: heroDisplayName(row.hero),
+          hero: row.hero,
         }))
       : positionPerformance(scoped).map((row) => ({
           id: row.position,

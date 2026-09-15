@@ -4,9 +4,9 @@ Last updated: 15 September 2026 (Asia/Kathmandu)
 
 ## Current phase
 
-Phase 4 — centralized MLBB rank engine and primary rank presentation.
-Implementation and verification are complete. The next authorized work is Phase
-5, but it must not begin until the user says
+Phase 5 — controlled hero metadata and shared portraits. Implementation and
+verification are complete. The next authorized work is Phase 6, but it must not
+begin until the user says
 `CONTINUE`.
 
 ## Completed phases
@@ -26,6 +26,9 @@ Implementation and verification are complete. The next authorized work is Phase
 - Phase 4: re-verified the ladder and Mythic thresholds, added one rank-display
   adapter, encoded the dated Season 41→42 reset table as a confirmation-required
   suggestion, expanded boundary tests, and upgraded the primary rank card.
+- Phase 5: added a reviewed 133-hero numeric-ID catalog using current Moonton CDN
+  base portraits, canonical ID-based name resolution, one resilient portrait
+  component, and consistent Hero Performance/Match History rendering.
 
 ## Audit summary
 
@@ -225,6 +228,17 @@ Implementation and verification are complete. The next authorized work is Phase
   starting draft while retaining mandatory in-game confirmation.
 - Phase 4: `docs/rank-rules.md` — separates verified rules, observed reset data
   and deliberately unresolved behavior.
+- Phase 5: `packages/tracker/heroes.ts` and `heroes.test.ts` — add and validate
+  the controlled ID/name/base-portrait catalog.
+- Phase 5: `packages/tracker/model.ts` and `tracker.test.ts` — canonicalize known
+  numeric IDs without losing exact observations and reject zero-padded duplicate
+  IDs.
+- Phase 5: `apps/web/src/HeroPortrait.tsx` — adds the shared image/error/unknown
+  renderer and canonical display-name helper.
+- Phase 5: `Performance.tsx`, `MatchHistory.tsx`, `Settings.tsx` and `style.css` —
+  use the shared hero presentation throughout tracker history and analytics.
+- Phase 5: `docs/hero-metadata.md` — documents source, attribution, refresh steps,
+  fallback behavior and the no-migration decision.
 
 ## Database migrations made
 
@@ -233,6 +247,8 @@ Implementation and verification are complete. The next authorized work is Phase
   applied to production in this implementation checkpoint.
 - Phase 4 adds no database migration; the existing versioned rank fields already
   support the engine and reset draft.
+- Phase 5 adds no database migration. Global versioned catalog metadata is not
+  duplicated into private workspace rows; existing `game_id` remains the key.
 - Existing production migrations inspected: `202609130001_shared_tracker.sql`
   through `202609140005_rank_checkpoints.sql`.
 
@@ -240,7 +256,7 @@ Implementation and verification are complete. The next authorized work is Phase
 
 - `npm run typecheck` — passed.
 - `npm run lint` — passed.
-- `npm test` — passed, 49 tests.
+- `npm test` — passed, 52 tests.
 - `npm run build` — passed; existing Vite large-chunk warning remains.
 - `npm run format:check` — passed.
 - Manual production audit — passed for read-only loading/navigation; confirmed the
@@ -268,6 +284,10 @@ Implementation and verification are complete. The next authorized work is Phase
 - Phase 4 local desktop inspection — passed: the primary card displays the
   derived Mythical Immortal rank and continuous star count with the new badge;
   no source configuration or production data was changed.
+- Phase 5 source and asset verification — passed: catalog covers 133 unique IDs
+  and names, every portrait uses HTTPS on Moonton's CDN, and the current
+  Benedetta base portrait returned HTTP 200 image/png. Full responsive image and
+  forced load-error interaction remains in the Phase 7 browser pass.
 
 ## Known issues
 
@@ -278,7 +298,8 @@ Implementation and verification are complete. The next authorized work is Phase
 - The Season 41→42 reset table is corroborated by two current independent sources
   but not a first-party Moonton table. It is dated, never automatic and requires
   confirmation against the game. Warrior/Elite reset division is not suggested.
-- No verified current-base hero portrait mapping; hero UI uses initials.
+- The catalog is a dated snapshot and must be reviewed when Moonton adds or
+  visually revamps heroes. Unknown future IDs intentionally show a fallback.
 - No component/E2E/Realtime test harness. Production data cannot be safely mutated
   merely to test during an audit.
 - Existing Vite build warning reports a JavaScript chunk larger than 500 kB.
@@ -314,14 +335,19 @@ Implementation and verification are complete. The next authorized work is Phase
   observed secondary evidence and surface them only as an editable draft.
 - Keep rank computation and presentation in the shared engine. React consumes
   `currentRank().display`; it does not reproduce thresholds or division rules.
+- Resolve hero art and canonical display names only from numeric Moonton IDs.
+  Keep exact match observations, never guess art from a typed name, and keep the
+  browser independent of third-party APIs at runtime.
+- Store global portrait metadata in the versioned application catalog rather
+  than adding redundant workspace/database columns. Use one shared component for
+  known, unknown and load-failed hero images.
 
 ## Exact next task
 
-Phase 5 only: establish one controlled Moonton hero-ID metadata source with
-current base portraits, a resilient shared hero-image component and unknown/load
-failure fallbacks; use it in Hero Performance and Match History. Reconcile the
-existing account hero registry first and add a migration only if persistence is
-justified.
+Phase 6 only: review the complete tracker integration and responsive layout;
+preserve the fixed two-player, Ranked-only, Battle-ID, position, contribution and
+graph decisions. Remove only confirmed obsolete UI, reduce unnecessary copy,
+and polish cross-page consistency without starting the Phase 7 test campaign.
 
 ## Commands needed to resume
 
@@ -355,3 +381,7 @@ npm run format:check
 - Phase 4 starting commit: `8eba6a9`.
 - Phase 4 checkpoint: the top commit with message
   `phase 4: implement rank engine`.
+- Phase 4 commit: `5864a26` (`phase 4: implement rank engine`).
+- Phase 5 starting commit: `5864a26`.
+- Phase 5 checkpoint: the top commit with message
+  `phase 5: add hero metadata and portraits`.

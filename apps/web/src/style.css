@@ -1061,6 +1061,21 @@ hr {
   background: #eef3e8;
   color: #5f784f;
 }
+.hero-portrait {
+  overflow: hidden;
+}
+.hero-portrait img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.hero-portrait > span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
 .compact-empty {
   min-height: 220px;
   display: grid;

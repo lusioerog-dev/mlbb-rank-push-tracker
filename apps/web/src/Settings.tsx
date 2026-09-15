@@ -11,6 +11,7 @@ import {
   startSeason,
 } from "../../../packages/tracker/seasons";
 import { playerName } from "../../../packages/tracker/players";
+import { heroDisplayName } from "./HeroPortrait";
 import {
   RANK_RULES,
   getSeasonResetSuggestion,
@@ -400,9 +401,13 @@ export function Settings({
                         </td>
                         <td>{playerName(match.playerId)}</td>
                         <td>
-                          {archive.state.heroes.find(
-                            (hero) => hero.id === match.heroId,
-                          )?.name ?? "—"}
+                          {match.heroId
+                            ? heroDisplayName(
+                                archive.state.heroes.find(
+                                  (hero) => hero.id === match.heroId,
+                                ),
+                              )
+                            : "—"}
                         </td>
                         <td>{match.result}</td>
                       </tr>

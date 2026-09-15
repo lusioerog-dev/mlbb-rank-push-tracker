@@ -3,6 +3,7 @@ import type { Match, TrackerState } from "../../../packages/tracker/model";
 import { starChange } from "../../../packages/tracker/model";
 import { playerName } from "../../../packages/tracker/players";
 import { rankLabel } from "../../../packages/tracker/rank-rules";
+import { HeroPortrait, heroDisplayName } from "./HeroPortrait";
 
 const signed = (value: number | null) =>
   value === null ? "—" : `${value > 0 ? "+" : ""}${value}★`;
@@ -66,11 +67,9 @@ export function MatchHistory({
               </span>
               <span className="match-player">{playerName(match.playerId)}</span>
               <span className="match-hero">
-                <span className="hero-mark">
-                  {(hero?.name ?? "?").slice(0, 2).toUpperCase()}
-                </span>
+                <HeroPortrait hero={hero} className="hero-mark" />
                 <span>
-                  <strong>{hero?.name ?? "Hero unavailable"}</strong>
+                  <strong>{heroDisplayName(hero)}</strong>
                   <small>
                     {positionLabel(match.playedPosition) ??
                       date(match.playedAt)}
