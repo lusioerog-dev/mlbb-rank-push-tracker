@@ -369,10 +369,42 @@ main {
   background: #d9efad12;
   box-shadow: inset 0 0 0 6px #d9efad08;
 }
+.rank-emblem.rank-bronze {
+  color: #e8aa73;
+}
+.rank-emblem.rank-silver {
+  color: #dce5eb;
+}
+.rank-emblem.rank-gold {
+  color: #f3d779;
+}
+.rank-emblem.rank-emerald {
+  color: #8de2ba;
+}
+.rank-emblem.rank-violet {
+  color: #d5b0ff;
+}
+.rank-emblem.rank-mythic {
+  color: #f0e0a2;
+  border-color: #c1a55d;
+  background: radial-gradient(circle, #d6b55f30, #553f1e20);
+  box-shadow:
+    0 0 24px #d5bb6850,
+    inset 0 0 0 6px #f5d77b0d;
+}
 .rank-tier {
-  font-size: 15px;
-  color: #bdcbaa;
+  font-size: 22px;
+  font-weight: 600;
+  color: #edf5df;
   margin-top: 18px;
+  margin-bottom: 0;
+}
+.rank-division {
+  margin: 2px 0 0;
+  color: #bdcbaa;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .star-total {
   font-size: 76px;
@@ -402,6 +434,14 @@ main {
   height: 100%;
   background: #d3e9ab;
 }
+.rank-progress {
+  margin-top: 22px;
+}
+.rank-progress-label {
+  color: #b8c7a4;
+  font-size: 10px;
+  margin: 7px 0 0;
+}
 .rank-bottom {
   display: flex;
   justify-content: space-between;
@@ -419,6 +459,15 @@ main {
   color: #8e9f7e;
   font-size: 9px;
   margin-top: 9px;
+}
+.target-progress .progress-track {
+  margin-top: 10px;
+}
+.target-progress small {
+  display: block;
+  color: #8e9f7e;
+  font-size: 9px;
+  margin-top: 7px;
 }
 .stat-grid {
   display: grid;
@@ -1388,6 +1437,19 @@ hr {
   align-items: flex-start;
   gap: 10px;
   margin: 18px 0;
+}
+.season-reset-suggestion {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 1px solid #d9dfce;
+  border-radius: 9px;
+  background: #f5f8f0;
+}
+.season-reset-suggestion p {
+  margin: 0 0 10px;
+  color: #58634f;
+  font-size: 12px;
+  line-height: 1.55;
 }
 .season-confirm input {
   width: auto;

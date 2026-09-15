@@ -2,6 +2,7 @@ import { z } from "zod";
 import { playerName } from "./players";
 import {
   advanceRank,
+  getRankDisplay,
   rankOrder,
   rankLabel,
   rankPositionSchema,
@@ -276,6 +277,7 @@ export function currentRank(state: TrackerState) {
     rankStars: position?.stars ?? null,
     tier: position ? rankLabel(position) : "",
     position,
+    display: position ? getRankDisplay(position) : null,
     at: latest?.playedAt ?? null,
     incomplete: latest?.stars === null,
     needsRankConfirmation: Boolean(state.push.startingRank && !position),

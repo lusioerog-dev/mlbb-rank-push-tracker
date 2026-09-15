@@ -4,8 +4,9 @@ Last updated: 15 September 2026 (Asia/Kathmandu)
 
 ## Current phase
 
-Phase 3 — passive Realtime synchronization. Implementation and verification are
-complete. The next authorized work is Phase 4, but it must not begin until the user says
+Phase 4 — centralized MLBB rank engine and primary rank presentation.
+Implementation and verification are complete. The next authorized work is Phase
+5, but it must not begin until the user says
 `CONTINUE`.
 
 ## Completed phases
@@ -22,6 +23,9 @@ complete. The next authorized work is Phase 4, but it must not begin until the u
 - Phase 3: removed manual Refresh and 15-second polling; added one member-scoped
   Supabase match subscription, coalesced canonical refetches, focus/visibility
   recovery, draft-safe deferred application and complete listener cleanup.
+- Phase 4: re-verified the ladder and Mythic thresholds, added one rank-display
+  adapter, encoded the dated Season 41→42 reset table as a confirmation-required
+  suggestion, expanded boundary tests, and upgraded the primary rank card.
 
 ## Audit summary
 
@@ -209,12 +213,26 @@ complete. The next authorized work is Phase 4, but it must not begin until the u
 - Phase 3: `packages/tracker/rehearsal.test.ts` — verifies the migration's
   membership policy, publication and read-only browser grant boundary.
 - Phase 3: `docs/IMPLEMENTATION_STATUS.md` — recorded completion and Phase 4 handoff.
+- Phase 4: `packages/tracker/rank-rules.ts` — added centralized display metadata
+  and a dated, non-automatic reset suggestion function.
+- Phase 4: `packages/tracker/model.ts` — exposes rank display data with the
+  derived current position.
+- Phase 4: `packages/tracker/progression.test.ts` — covers division/Mythic display
+  semantics and reset boundaries.
+- Phase 4: `apps/web/src/App.tsx` and `style.css` — upgraded the primary rank card
+  with a rank badge, rank/division hierarchy and current-rank progress.
+- Phase 4: `apps/web/src/Settings.tsx` — offers the observed reset as an editable
+  starting draft while retaining mandatory in-game confirmation.
+- Phase 4: `docs/rank-rules.md` — separates verified rules, observed reset data
+  and deliberately unresolved behavior.
 
 ## Database migrations made
 
 - None in Phases 0, 1 or 2.
 - Phase 3 adds `202609150001_realtime_match_updates.sql`. It is committed but not
   applied to production in this implementation checkpoint.
+- Phase 4 adds no database migration; the existing versioned rank fields already
+  support the engine and reset draft.
 - Existing production migrations inspected: `202609130001_shared_tracker.sql`
   through `202609140005_rank_checkpoints.sql`.
 
@@ -222,7 +240,7 @@ complete. The next authorized work is Phase 4, but it must not begin until the u
 
 - `npm run typecheck` — passed.
 - `npm run lint` — passed.
-- `npm test` — passed, 47 tests.
+- `npm test` — passed, 49 tests.
 - `npm run build` — passed; existing Vite large-chunk warning remains.
 - `npm run format:check` — passed.
 - Manual production audit — passed for read-only loading/navigation; confirmed the
@@ -247,13 +265,19 @@ complete. The next authorized work is Phase 4, but it must not begin until the u
   Refresh action or polling interval; initial loading and recovery-only Reload
   controls remain. Two-session production delivery awaits migration/deployment
   and the Phase 7 integration pass.
+- Phase 4 local desktop inspection — passed: the primary card displays the
+  derived Mythical Immortal rank and continuous star count with the new badge;
+  no source configuration or production data was changed.
 
 ## Known issues
 
 - The Phase 3 Realtime migration and frontend are not yet deployed, so production
   continues to run the prior build until the release workflow is authorized.
-- Rank rules remain deliberately incomplete at unverified reset/placement/demotion
-  boundaries, and the main rank visual is generic.
+- Placement awards and demotion below Mythic zero remain deliberately unknown;
+  a confirmed checkpoint is required at those boundaries.
+- The Season 41→42 reset table is corroborated by two current independent sources
+  but not a first-party Moonton table. It is dated, never automatic and requires
+  confirmation against the game. Warrior/Elite reset division is not suggested.
 - No verified current-base hero portrait mapping; hero UI uses initials.
 - No component/E2E/Realtime test harness. Production data cannot be safely mutated
   merely to test during an audit.
@@ -285,14 +309,19 @@ complete. The next authorized work is Phase 4, but it must not begin until the u
 - Grant authenticated browsers member-scoped SELECT only. Keep all match writes
   behind the Worker/service-role transaction and defer incoming revisions while
   a match form or Settings draft is open.
+- Treat Google Play/Apple editorial material as strong evidence for the ladder,
+  star mechanics and Immortal threshold. Treat the matching 2026 reset tables as
+  observed secondary evidence and surface them only as an editable draft.
+- Keep rank computation and presentation in the shared engine. React consumes
+  `currentRank().display`; it does not reproduce thresholds or division rules.
 
 ## Exact next task
 
-Phase 4 only: verify current MLBB rank rules against current authoritative or
-well-supported sources before changing behavior. Document verified rules versus
-assumptions, evolve the centralized engine/state/display API, add boundary,
-reset and override tests, and implement the primary rank-card treatment without
-inventing uncertain placement or demotion behavior.
+Phase 5 only: establish one controlled Moonton hero-ID metadata source with
+current base portraits, a resilient shared hero-image component and unknown/load
+failure fallbacks; use it in Hero Performance and Match History. Reconcile the
+existing account hero registry first and add a migration only if persistence is
+justified.
 
 ## Commands needed to resume
 
@@ -322,3 +351,7 @@ npm run format:check
 - Phase 3 starting commit: `66e645fb030c06b4eb415bb02c72435ca4be0ab6`.
 - Phase 3 checkpoint: the top commit with message
   `phase 3: add realtime tracker sync`.
+- Phase 3 commit: `8eba6a9` (`phase 3: add realtime tracker sync`).
+- Phase 4 starting commit: `8eba6a9`.
+- Phase 4 checkpoint: the top commit with message
+  `phase 4: implement rank engine`.

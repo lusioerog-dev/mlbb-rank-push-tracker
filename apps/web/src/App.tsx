@@ -442,16 +442,24 @@ export function App({
                 <div className="rank-card">
                   <div className="rank-top">
                     <span className="eyebrow">SHARED ACCOUNT</span>
-                    <span className="rank-emblem">
-                      <Star size={24} />
+                    <span
+                      className={`rank-emblem rank-${rank.display?.tone ?? "unknown"}`}
+                      aria-hidden="true"
+                    >
+                      <ShieldCheck size={27} />
                     </span>
                   </div>
                   <p className="rank-tier">
-                    {rank.tier ||
+                    {rank.display?.name ||
                       (rank.needsRankConfirmation
                         ? "Rank needs confirmation"
                         : "Choose starting rank in Settings")}
                   </p>
+                  {rank.display?.division && (
+                    <p className="rank-division">
+                      Division {rank.display.division}
+                    </p>
+                  )}
                   <div className="star-total">
                     {rank.rankStars ??
                       (rank.incomplete || rank.needsRankConfirmation
@@ -477,9 +485,16 @@ export function App({
                       match before relying on this rank.
                     </p>
                   )}
-                  <div className="progress-track">
-                    <div style={{ width: `${progress ?? 0}%` }} />
-                  </div>
+                  {rank.display && (
+                    <>
+                      <div className="progress-track rank-progress">
+                        <div style={{ width: `${rank.display.progress}%` }} />
+                      </div>
+                      <p className="rank-progress-label">
+                        {rank.display.progressLabel}
+                      </p>
+                    </>
+                  )}
                   <div className="rank-bottom">
                     <span>
                       {target === null
@@ -495,11 +510,16 @@ export function App({
                     </button>
                   </div>
                   {targetProgress && (
-                    <small>
-                      {targetProgress.complete
-                        ? "Rank target reached"
-                        : `${targetProgress.remaining} rank stars remaining`}
-                    </small>
+                    <div className="target-progress">
+                      <div className="progress-track">
+                        <div style={{ width: `${progress ?? 0}%` }} />
+                      </div>
+                      <small>
+                        {targetProgress.complete
+                          ? "Rank target reached"
+                          : `${targetProgress.remaining} rank stars remaining`}
+                      </small>
+                    </div>
                   )}
                   <small>
                     Last recorded:{" "}

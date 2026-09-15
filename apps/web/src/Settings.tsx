@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import {
+  currentRank,
   resolvedRankTarget,
   stateSchema,
 } from "../../../packages/tracker/model";
@@ -12,6 +13,8 @@ import {
 import { playerName } from "../../../packages/tracker/players";
 import {
   RANK_RULES,
+  getSeasonResetSuggestion,
+  rankLabel,
   rankTiers,
   type StartingRank,
 } from "../../../packages/tracker/rank-rules";
@@ -32,6 +35,14 @@ export function Settings({
   const [startTier, setStartTier] = useState<StartingRank["tier"] | "">(
     state.push.startingRank?.tier ?? "",
   );
+  const [startDivision, setStartDivision] = useState(
+    state.push.startingRank?.division ?? 1,
+  );
+  const [startStars, setStartStars] = useState(state.push.startingStars);
+  const endingRank = currentRank(state).position;
+  const resetSuggestion = endingRank
+    ? getSeasonResetSuggestion(endingRank)
+    : null;
   const existingTarget = resolvedRankTarget(state);
   const [targetTier, setTargetTier] = useState<StartingRank["tier"] | "">(
     existingTarget?.tier ?? "",
@@ -125,6 +136,9 @@ export function Settings({
             value={newSeason ? "new" : "edit"}
             onChange={(e) => {
               setNewSeason(e.target.value === "new");
+              setStartTier(state.push.startingRank?.tier ?? "");
+              setStartDivision(state.push.startingRank?.division ?? 1);
+              setStartStars(state.push.startingStars);
               setError("");
             }}
           >
@@ -162,7 +176,8 @@ export function Settings({
                 min="0"
                 max="1000000"
                 required
-                defaultValue={state.push.startingStars}
+                value={startStars}
+                onChange={(event) => setStartStars(Number(event.target.value))}
               />
             </label>
             <label>
@@ -232,9 +247,12 @@ export function Settings({
               <select
                 disabled={baselineLocked}
                 value={startTier}
-                onChange={(e) =>
-                  setStartTier(e.target.value as StartingRank["tier"] | "")
-                }
+                onChange={(e) => {
+                  const tier = e.target.value as StartingRank["tier"] | "";
+                  setStartTier(tier);
+                  if (tier && tier !== "Mythic")
+                    setStartDivision(RANK_RULES.divisions[tier].count);
+                }}
               >
                 <option value="">Choose once from in-game rank</option>
                 {rankTiers.map((tier) => (
@@ -253,11 +271,9 @@ export function Settings({
                   key={startTier}
                   name="division"
                   disabled={baselineLocked}
-                  defaultValue={
-                    state.push.startingRank?.tier === startTier
-                      ? (state.push.startingRank.division ??
-                        RANK_RULES.divisions[startTier].count)
-                      : RANK_RULES.divisions[startTier].count
+                  value={startDivision}
+                  onChange={(event) =>
+                    setStartDivision(Number(event.target.value))
                   }
                 >
                   {Array.from(
@@ -281,6 +297,26 @@ export function Settings({
               />
             </label>
           </div>
+          {newSeason && resetSuggestion && (
+            <div className="season-reset-suggestion">
+              <p>
+                Observed Season 41→42 reset suggestion:{" "}
+                <strong>{rankLabel(resetSuggestion)}</strong>, 0 stars. Confirm
+                this against the in-game rank screen before saving.
+              </p>
+              <button
+                type="button"
+                className="quiet-button"
+                onClick={() => {
+                  setStartTier(resetSuggestion.tier);
+                  setStartDivision(resetSuggestion.division ?? 1);
+                  setStartStars(resetSuggestion.stars);
+                }}
+              >
+                Use as starting draft
+              </button>
+            </div>
+          )}
           {newSeason ? (
             <label className="season-confirm">
               <input type="checkbox" name="confirmSeason" required />I checked

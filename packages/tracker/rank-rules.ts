@@ -3,8 +3,11 @@ import { z } from "zod";
 // See docs/rank-rules.md for evidence and deliberate uncertainty boundaries.
 export const RANK_RULES = {
   version: "mlbb-stars-2026-09",
-  reviewedAt: "2026-09-13",
-  resetMapping: null,
+  reviewedAt: "2026-09-15",
+  resetMapping: {
+    status: "secondary-sources-require-confirmation",
+    season: "Season 41 to Season 42",
+  },
   divisions: {
     Warrior: { count: 3, stars: 3 },
     Elite: { count: 3, stars: 4 },
@@ -77,6 +80,15 @@ export const rankPositionSchema = z
   });
 export type ConfirmedRank = z.infer<typeof rankPositionSchema>;
 
+export type RankDisplay = {
+  name: string;
+  division: string | null;
+  stars: string;
+  progress: number;
+  progressLabel: string;
+  tone: "bronze" | "silver" | "gold" | "emerald" | "violet" | "mythic";
+};
+
 export function rankOrder(position: RankPosition) {
   let order = 0;
   for (const tier of rankTiers) {
@@ -98,6 +110,84 @@ export function rankLabel(rank: RankPosition) {
       .reverse()
       .find((r) => rank.stars >= r.minimum)!.name;
   return `${rank.tier} ${roman[rank.division!]}`;
+}
+
+export function getRankDisplay(position: RankPosition): RankDisplay {
+  if (position.tier === "Mythic") {
+    const bands = [...RANK_RULES.mythic];
+    const band = [...bands]
+      .reverse()
+      .find((candidate) => position.stars >= candidate.minimum)!;
+    const next = bands[bands.indexOf(band) + 1];
+    const progress = next
+      ? ((position.stars - band.minimum) / (next.minimum - band.minimum)) * 100
+      : 100;
+    return {
+      name: band.name,
+      division: null,
+      stars: `${position.stars} stars`,
+      progress: Math.min(100, Math.max(0, progress)),
+      progressLabel: next
+        ? `${next.minimum - position.stars} star${next.minimum - position.stars === 1 ? "" : "s"} to ${next.name}`
+        : "Mythical Immortal",
+      tone: "mythic",
+    };
+  }
+  const rule = RANK_RULES.divisions[position.tier];
+  const tone = {
+    Warrior: "bronze",
+    Elite: "silver",
+    Master: "gold",
+    Grandmaster: "emerald",
+    Epic: "violet",
+    Legend: "gold",
+  }[position.tier] as RankDisplay["tone"];
+  return {
+    name: position.tier,
+    division: roman[position.division!]!,
+    stars: `${position.stars}/${rule.stars} stars`,
+    progress: (position.stars / rule.stars) * 100,
+    progressLabel:
+      position.stars === rule.stars
+        ? "Next earned star promotes"
+        : `${rule.stars - position.stars} stars to promotion`,
+    tone,
+  };
+}
+
+/**
+ * Dated Season 41 -> 42 reset suggestion from corroborating secondary sources.
+ * The game result must still be confirmed because Moonton publishes no stable
+ * machine-readable reset contract and can change the table between seasons.
+ */
+export function getSeasonResetSuggestion(
+  ending: RankPosition,
+): RankPosition | null {
+  const reset = (
+    tier: Exclude<StartingRank["tier"], "Mythic">,
+    division: number,
+  ): RankPosition => ({ tier, division, stars: 0 });
+  if (ending.tier === "Mythic") {
+    if (ending.stars >= 50) return reset("Legend", 5);
+    if (ending.stars >= 25) return reset("Epic", 1);
+    return reset("Epic", 2);
+  }
+  const division = ending.division!;
+  // Available reset charts do not specify a division for these two rows.
+  if (ending.tier === "Warrior" || ending.tier === "Elite") return null;
+  if (ending.tier === "Master") return reset("Elite", division >= 3 ? 1 : 2);
+  if (ending.tier === "Grandmaster") {
+    if (division === 5) return reset("Master", 1);
+    if (division === 4) return reset("Master", 2);
+    return reset("Grandmaster", division + 2);
+  }
+  if (ending.tier === "Epic") {
+    if (division === 5) return reset("Grandmaster", 2);
+    if (division === 4) return reset("Grandmaster", 1);
+    if (division === 1) return reset("Epic", 4);
+    return reset("Epic", 5);
+  }
+  return reset("Epic", division === 5 ? 4 : 3);
 }
 export function advanceRank(
   position: RankPosition,

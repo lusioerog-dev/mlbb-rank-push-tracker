@@ -14,7 +14,13 @@ import {
 } from "./model";
 import type { Match, TrackerState } from "./model";
 import { initialState } from "./seed";
-import { RANK_RULES, advanceRank, rankLabel } from "./rank-rules";
+import {
+  RANK_RULES,
+  advanceRank,
+  getRankDisplay,
+  getSeasonResetSuggestion,
+  rankLabel,
+} from "./rank-rules";
 import { parseBackup } from "./storage";
 const state = (stars = 115): TrackerState => ({
   ...initialState(),
@@ -134,7 +140,96 @@ test("Mythic medal promotion and demotion occur at all published thresholds", ()
     advanceRank({ tier: "Mythic", division: null, stars: 0 }, -1),
     null,
   );
-  assert.equal(RANK_RULES.resetMapping, null);
+});
+test("rank display distinguishes division progress from continuous Mythic stars", () => {
+  assert.deepEqual(getRankDisplay({ tier: "Epic", division: 2, stars: 3 }), {
+    name: "Epic",
+    division: "II",
+    stars: "3/5 stars",
+    progress: 60,
+    progressLabel: "2 stars to promotion",
+    tone: "violet",
+  });
+  assert.deepEqual(
+    getRankDisplay({ tier: "Mythic", division: null, stars: 49 }),
+    {
+      name: "Mythical Honor",
+      division: null,
+      stars: "49 stars",
+      progress: 96,
+      progressLabel: "1 star to Mythical Glory",
+      tone: "mythic",
+    },
+  );
+  assert.equal(
+    getRankDisplay({ tier: "Mythic", division: null, stars: 103 }).progress,
+    100,
+  );
+});
+test("dated reset suggestions cover current observed boundaries without becoming automatic facts", () => {
+  for (const [ending, reset] of [
+    [
+      { tier: "Master", division: 4, stars: 4 },
+      { tier: "Elite", division: 1, stars: 0 },
+    ],
+    [
+      { tier: "Master", division: 1, stars: 4 },
+      { tier: "Elite", division: 2, stars: 0 },
+    ],
+    [
+      { tier: "Grandmaster", division: 5, stars: 5 },
+      { tier: "Master", division: 1, stars: 0 },
+    ],
+    [
+      { tier: "Grandmaster", division: 1, stars: 5 },
+      { tier: "Grandmaster", division: 3, stars: 0 },
+    ],
+    [
+      { tier: "Epic", division: 5, stars: 5 },
+      { tier: "Grandmaster", division: 2, stars: 0 },
+    ],
+    [
+      { tier: "Epic", division: 4, stars: 5 },
+      { tier: "Grandmaster", division: 1, stars: 0 },
+    ],
+    [
+      { tier: "Epic", division: 3, stars: 5 },
+      { tier: "Epic", division: 5, stars: 0 },
+    ],
+    [
+      { tier: "Epic", division: 1, stars: 5 },
+      { tier: "Epic", division: 4, stars: 0 },
+    ],
+    [
+      { tier: "Legend", division: 5, stars: 5 },
+      { tier: "Epic", division: 4, stars: 0 },
+    ],
+    [
+      { tier: "Legend", division: 1, stars: 5 },
+      { tier: "Epic", division: 3, stars: 0 },
+    ],
+  ] as const)
+    assert.deepEqual(getSeasonResetSuggestion(ending), reset);
+  assert.deepEqual(
+    getSeasonResetSuggestion({ tier: "Mythic", division: null, stars: 24 }),
+    { tier: "Epic", division: 2, stars: 0 },
+  );
+  assert.deepEqual(
+    getSeasonResetSuggestion({ tier: "Mythic", division: null, stars: 25 }),
+    { tier: "Epic", division: 1, stars: 0 },
+  );
+  assert.deepEqual(
+    getSeasonResetSuggestion({ tier: "Mythic", division: null, stars: 50 }),
+    { tier: "Legend", division: 5, stars: 0 },
+  );
+  assert.equal(
+    getSeasonResetSuggestion({ tier: "Elite", division: 1, stars: 4 }),
+    null,
+  );
+  assert.equal(
+    RANK_RULES.resetMapping.status,
+    "secondary-sources-require-confirmation",
+  );
 });
 test("unknown placement is not invented; confirmed Mythic checkpoint resumes rank derivation", () => {
   const s = state(5);
