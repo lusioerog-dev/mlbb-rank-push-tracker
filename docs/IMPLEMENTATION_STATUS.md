@@ -4,8 +4,9 @@ Last updated: 15 September 2026 (Asia/Kathmandu)
 
 ## Current phase
 
-Phase 6 — integration and responsive cleanup. Implementation and verification
-are complete. The next authorized work is Phase 7, but it must not
+Phase 7 — full automated and manual verification. All safe local checks are
+complete; the undeployed two-session Realtime scenario remains an explicit
+release gate. The next authorized work is Phase 8, but it must not
 begin until the user says
 `CONTINUE`.
 
@@ -32,6 +33,9 @@ begin until the user says
 - Phase 6: reviewed the integrated desktop and phone layouts, consolidated shared
   hero naming, made adjacent portraits decorative for assistive technology, and
   removed only CSS rules confirmed to have no remaining UI consumers.
+- Phase 7: passed the complete 52-test automated suite and desktop/phone browser
+  campaign, verified the signed-out boundary without credentials, and documented
+  the undeployed two-session Realtime release gate without mutating production.
 
 ## Audit summary
 
@@ -251,6 +255,10 @@ begin until the user says
   result, tip and icon-button rules plus their obsolete responsive overrides.
 - Phase 6: `docs/IMPLEMENTATION_STATUS.md` — records the integration checkpoint
   and Phase 7 handoff.
+- Phase 7: `docs/phase-7-test-report.md` — records the automated/manual matrix,
+  browser dimensions, safety boundaries and exact live Realtime release gate.
+- Phase 7: `docs/IMPLEMENTATION_STATUS.md` — records verification results and the
+  Phase 8 handoff.
 
 ## Database migrations made
 
@@ -262,6 +270,7 @@ begin until the user says
 - Phase 5 adds no database migration. Global versioned catalog metadata is not
   duplicated into private workspace rows; existing `game_id` remains the key.
 - Phase 6 adds no database migration.
+- Phase 7 adds no database migration and does not apply existing migrations.
 - Existing production migrations inspected: `202609130001_shared_tracker.sql`
   through `202609140005_rank_checkpoints.sql`.
 
@@ -293,14 +302,14 @@ begin until the user says
 - Phase 3 source/UI verification — passed: the ordinary authenticated page has no
   Refresh action or polling interval; initial loading and recovery-only Reload
   controls remain. Two-session production delivery awaits migration/deployment
-  and the Phase 7 integration pass.
+  and remains the documented release gate.
 - Phase 4 local desktop inspection — passed: the primary card displays the
   derived Mythical Immortal rank and continuous star count with the new badge;
   no source configuration or production data was changed.
 - Phase 5 source and asset verification — passed: catalog covers 133 unique IDs
   and names, every portrait uses HTTPS on Moonton's CDN, and the current
-  Benedetta base portrait returned HTTP 200 image/png. Full responsive image and
-  forced load-error interaction remains in the Phase 7 browser pass.
+  Benedetta base portrait returned HTTP 200 image/png. Responsive known/unknown
+  portrait behavior was subsequently verified in Phases 6 and 7.
 - Phase 6 local desktop inspection — passed: Overview and Hero Performance retain
   the rank, contribution, graph and hero data hierarchy with canonical portraits.
 - Phase 6 local 390 × 844 inspection — passed: Match History filters and six-item
@@ -308,6 +317,16 @@ begin until the user says
   and Lane Performance remains readable without obscured content.
 - Phase 6 visual inspection used local fixture data only; the production backend
   configuration was restored exactly and no production writes were made.
+- Phase 7 full automated campaign — passed: typecheck, lint, 52/52 tests,
+  production build and formatting. The existing large-chunk warning remains.
+- Phase 7 desktop 1440 × 900 campaign — passed for Overview, Match History,
+  Record Ranked, Hero Performance, Lane Performance and Settings.
+- Phase 7 phone 390 × 844 campaign — passed for responsive navigation, Overview,
+  Match History/filtering, Settings, the Ranked form and the signed-out boundary;
+  no horizontal overflow or single-client application console errors were found.
+- Phase 7 did not run live two-session Realtime mutation testing because the
+  migration/frontend remain undeployed. `docs/phase-7-test-report.md` defines the
+  exact post-deployment release gate; no production data was changed.
 
 ## Known issues
 
@@ -369,10 +388,9 @@ begin until the user says
 
 ## Exact next task
 
-Phase 7 only: run the full automated and manual test campaign, including auth and
-responsive layout checks, rank and hero behavior, database boundaries, and—after
-the committed Realtime migration is available in a suitable environment—two-session
-insert/update/delete plus visibility/focus recovery verification.
+Phase 8 only: reconcile the now-completed implementation with the architecture,
+maintenance, migration, deployment and testing documentation. Preserve the
+undeployed Realtime release gate and do not deploy or alter production data.
 
 ## Commands needed to resume
 
@@ -414,3 +432,7 @@ npm run format:check
 - Phase 6 starting commit: `aa1098e`.
 - Phase 6 checkpoint: the top commit with message
   `phase 6: integrate and polish tracker`.
+- Phase 6 commit: `a28ba43` (`phase 6: integrate and polish tracker`).
+- Phase 7 starting commit: `a28ba43`.
+- Phase 7 checkpoint: the top commit with message
+  `phase 7: verify tracker integration`.
