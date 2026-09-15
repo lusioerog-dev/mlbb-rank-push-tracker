@@ -173,6 +173,11 @@ small {
   background: #2b3c25;
   color: #deedc4;
 }
+.nav-secondary {
+  border-top: 1px solid #304031;
+  margin-top: 24px;
+  padding-top: 14px;
+}
 .active-dot {
   width: 5px;
   height: 5px;
@@ -825,6 +830,52 @@ legend span {
   margin: 14px 0;
   color: #87967b;
 }
+.account-panel {
+  max-width: 680px;
+  padding: 8px 25px 22px;
+}
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 0;
+  border-bottom: 1px solid #edf0e9;
+}
+.account-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  border-radius: 11px;
+  background: #eef3e8;
+  color: #627954;
+}
+.account-icon.connected {
+  color: #4f7b3e;
+}
+.account-row span:not(.account-icon),
+.account-row strong {
+  display: block;
+}
+.account-row span:not(.account-icon) {
+  color: #8a9583;
+  font-size: 10px;
+  margin-bottom: 5px;
+}
+.account-row strong {
+  color: #35452d;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.account-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 22px;
+}
+.account-panel > .error {
+  margin-top: 18px;
+}
 .audit-list > div {
   border-bottom: 1px solid #e9eee1;
   padding: 12px 0;
@@ -1189,6 +1240,19 @@ hr {
     margin: 0;
     justify-content: space-between;
     width: 100%;
+  }
+  .nav-primary,
+  .nav-secondary {
+    display: flex;
+  }
+  .nav-primary {
+    flex: 4;
+  }
+  .nav-secondary {
+    flex: 2;
+    border: 0;
+    margin: 0;
+    padding: 0;
   }
   .nav-item {
     font-size: 9px;

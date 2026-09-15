@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Session } from "@supabase/supabase-js";
 import { z } from "zod";
 import { App } from "./App";
+import type { AccountSession } from "./Account";
 import { readState } from "../../../packages/tracker/compatibility";
 import type { TrackerState } from "../../../packages/tracker/model";
 
@@ -117,7 +118,20 @@ function Connected({ config }: { config: Config }) {
     load: async () => readState(await api("/v2/tracker")),
     save: async (state) => readState(await api("/v2/tracker", "PUT", state)),
   };
-  if (session) return <App key={remote.id} remote={remote} />;
+  if (session) {
+    const account: AccountSession = {
+      email: session.user.email ?? "Email unavailable",
+      provider:
+        (session.user.app_metadata.provider as string | undefined) ??
+        session.user.identities?.[0]?.provider ??
+        null,
+      signOut: async () => {
+        const { error } = await client.auth.signOut();
+        if (error) throw error;
+      },
+    };
+    return <App key={remote.id} remote={remote} account={account} />;
+  }
   return (
     <main className="recovery panel">
       <h1>MLBB Pilot Push</h1>

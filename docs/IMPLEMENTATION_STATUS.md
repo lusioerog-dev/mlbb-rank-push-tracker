@@ -4,9 +4,9 @@ Last updated: 15 September 2026 (Asia/Kathmandu)
 
 ## Current phase
 
-Phase 1 — remove the broken top account bar. Implementation and verification are
-complete. The next authorized work is Phase 2, but it must not begin until the
-user says `CONTINUE`.
+Phase 2 — dedicated Account page. Implementation and verification are complete.
+The next authorized work is Phase 3, but it must not begin until the user says
+`CONTINUE`.
 
 ## Completed phases
 
@@ -16,6 +16,9 @@ user says `CONTINUE`.
 - Phase 1: removed the authenticated email/Sign out bar from every tracker page,
   removed its obsolete styles and tightened the desktop content offset. The
   standalone sign-in, session gate and connection-recovery screens remain.
+- Phase 2: added a dedicated authenticated Account page with email, sign-in
+  provider, shared-session status and Sign out; separated tracker and account
+  navigation; and fitted all six destinations into the phone bottom bar.
 
 ## Audit summary
 
@@ -185,10 +188,19 @@ user says `CONTINUE`.
   the desktop top padding from 42/45 px to 30/32 px.
 - Phase 1: `docs/IMPLEMENTATION_STATUS.md` — recorded the completed phase and the
   continuation point.
+- Phase 2: `apps/web/src/Account.tsx` — added the focused account/session view,
+  pending Sign out state and inline failure handling.
+- Phase 2: `apps/web/src/Cloud.tsx` — passes authenticated session metadata and
+  the Supabase Sign out action into the protected tracker.
+- Phase 2: `apps/web/src/App.tsx` — added the conditional Account destination,
+  split primary/secondary navigation, and keeps tracker actions off Account.
+- Phase 2: `apps/web/src/style.css` — added Account presentation, desktop nav
+  separation and six-item mobile navigation layout.
+- Phase 2: `docs/IMPLEMENTATION_STATUS.md` — recorded completion and Phase 3 handoff.
 
 ## Database migrations made
 
-- None in Phases 0 or 1.
+- None in Phases 0, 1 or 2.
 - Existing production migrations inspected: `202609130001_shared_tracker.sql`
   through `202609140005_rank_checkpoints.sql`.
 
@@ -208,14 +220,18 @@ user says `CONTINUE`.
 - Phase 1 local 390 × 844 inspection — passed: content starts at the top, the
   five-item bottom navigation remains usable and no removed-header gap remains.
 - Signed-out behavior remains guarded by `Cloud.tsx`; typechecking confirms the
-  password and optional email-link paths remain wired. Signing out cannot be
-  manually exercised until its required Account-page destination is added in
-  Phase 2.
+  password and optional email-link paths remain wired.
+- Phase 2 local desktop inspection — passed: Account is separated below Settings,
+  the page shows only account/session information and Sign out, and the tracker
+  heading has no unrelated Record action.
+- Phase 2 local 390 × 844 inspection — passed: all six destinations fit the fixed
+  bottom bar, Account remains readable and no content is obscured.
+- The Sign out button invokes the real `client.auth.signOut()` path and reports a
+  failure without hiding the session. A live click was intentionally not made
+  because this phase was not deployed and the local visual fixture used a no-op.
 
 ## Known issues
 
-- No Account page or signed-in Sign out control exists until Phase 2. This is the
-  deliberate short phase boundary after removing the broken global control.
 - Manual Refresh and 15-second polling remain; no Supabase Realtime integration.
 - Rank rules remain deliberately incomplete at unverified reset/placement/demotion
   boundaries, and the main rank visual is generic.
@@ -239,16 +255,21 @@ user says `CONTINUE`.
   path remains canonical and all derived views update together.
 - Keep authenticated account controls out of the global tracker shell. Phase 1
   removes them; Phase 2 will restore Sign out in the dedicated Account page.
+- Expose only stable, useful Supabase session metadata on Account: email,
+  provider and connection status. Do not expose user IDs, tokens or tracker
+  configuration.
+- Keep Account conditional on an authenticated cloud session; local browser mode
+  does not fabricate an account destination.
 
 ## Exact next task
 
-Phase 2 only: add a dedicated Account page and sidebar destination. Pass the
-authenticated email, available identity/provider information and a working Sign
-out action from `Cloud.tsx` into `App.tsx` without reintroducing a global header.
-Keep Settings tracker-only, retain the shared-storage indicator, and make the six
-destinations usable on desktop and mobile. Run all checks, manually verify the
-Account page and responsive navigation, update this file, commit separately,
-report, and stop.
+Phase 3 only: remove the manual Refresh button and replace polling with a single,
+cleaned-up Supabase Realtime invalidation subscription for relevant ranked-match
+data. Refetch canonical application state without a browser reload; coalesce
+events, preserve active drafts, add visibility/focus recovery and prevent
+duplicate subscriptions or request storms. Add focused tests for the refetch
+coordinator where practical, manually verify connection/UI behavior, run all
+checks, update this file, commit separately, report, and stop.
 
 ## Commands needed to resume
 
@@ -270,3 +291,7 @@ npm run format:check
 - Phase 1 starting commit: `28c9cc75055b35c4212e525833751bba81220e5a`.
 - Phase 1 checkpoint: the top commit with message
   `phase 1: remove global account header`.
+- Phase 1 commit: `a4bb455` (`phase 1: remove global account header`).
+- Phase 2 starting commit: `a4bb455a4b1a325d2921df50701b694c8b6258f2`.
+- Phase 2 checkpoint: the top commit with message
+  `phase 2: add dedicated account page`.

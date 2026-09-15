@@ -15,6 +15,7 @@ import {
   Star,
   Swords,
   Upload,
+  UserRound,
   Users,
 } from "lucide-react";
 import {
@@ -53,6 +54,8 @@ import { PerformancePage } from "./Performance";
 import { PlayerScope } from "./PlayerScope";
 import { Settings } from "./Settings";
 import type { RemoteStore } from "./Cloud";
+import { AccountPage } from "./Account";
+import type { AccountSession } from "./Account";
 
 const signed = (value: number | null) =>
   value === null ? "—" : `${value > 0 ? "+" : ""}${value}`;
@@ -68,8 +71,15 @@ function download(filename: string, text: string, type = "application/json") {
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-type Page = "overview" | "matches" | "heroes" | "lanes" | "settings";
-export function App({ remote }: { remote?: RemoteStore }) {
+type Page =
+  "overview" | "matches" | "heroes" | "lanes" | "settings" | "account";
+export function App({
+  remote,
+  account,
+}: {
+  remote?: RemoteStore;
+  account?: AccountSession;
+}) {
   const [state, setState] = useState<TrackerState | null>(null);
   const [fatal, setFatal] = useState("");
   const [page, setPage] = useState<Page>("overview");
@@ -251,13 +261,32 @@ export function App({ remote }: { remote?: RemoteStore }) {
       hour: "2-digit",
       minute: "2-digit",
     });
-  const nav: Array<[Page, string, typeof LayoutDashboard]> = [
+  const primaryNav: Array<[Page, string, typeof LayoutDashboard]> = [
     ["overview", "Overview", LayoutDashboard],
     ["matches", "Match history", List],
     ["heroes", "Hero performance", Swords],
     ["lanes", "Lane performance", MapPinned],
-    ["settings", "Settings", Settings2],
   ];
+  const secondaryNav: Array<[Page, string, typeof LayoutDashboard]> = [
+    ["settings", "Settings", Settings2],
+    ...(account
+      ? ([["account", "Account", UserRound]] as Array<
+          [Page, string, typeof LayoutDashboard]
+        >)
+      : []),
+  ];
+  const nav = [...primaryNav, ...secondaryNav];
+  const renderNav = ([id, label, Icon]: (typeof nav)[number]) => (
+    <button
+      key={id}
+      className={page === id ? "nav-item active" : "nav-item"}
+      onClick={() => setPage(id)}
+    >
+      <Icon size={19} />
+      {label}
+      {page === id && <span className="active-dot" />}
+    </button>
+  );
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -278,17 +307,8 @@ export function App({ remote }: { remote?: RemoteStore }) {
           </span>
         </a>
         <nav>
-          {nav.map(([id, label, Icon]) => (
-            <button
-              key={id}
-              className={page === id ? "nav-item active" : "nav-item"}
-              onClick={() => setPage(id)}
-            >
-              <Icon size={19} />
-              {label}
-              {page === id && <span className="active-dot" />}
-            </button>
-          ))}
+          <div className="nav-primary">{primaryNav.map(renderNav)}</div>
+          <div className="nav-secondary">{secondaryNav.map(renderNav)}</div>
         </nav>
         <div className="sidebar-bottom">
           <span className="local-badge">
@@ -311,27 +331,29 @@ export function App({ remote }: { remote?: RemoteStore }) {
                   : nav.find((n) => n[0] === page)![1]}
               </h1>
             </div>
-            <div className="page-actions">
-              {shared && (
-                <button
-                  className="quiet-button"
-                  onClick={() => {
-                    if (
-                      !saving.current &&
-                      window.confirm(
-                        "Refresh shared data? Unsaved form changes will be discarded.",
+            {page !== "account" && (
+              <div className="page-actions">
+                {shared && (
+                  <button
+                    className="quiet-button"
+                    onClick={() => {
+                      if (
+                        !saving.current &&
+                        window.confirm(
+                          "Refresh shared data? Unsaved form changes will be discarded.",
+                        )
                       )
-                    )
-                      setReload(reload + 1);
-                  }}
-                >
-                  Refresh
+                        setReload(reload + 1);
+                    }}
+                  >
+                    Refresh
+                  </button>
+                )}
+                <button className="primary" onClick={() => setEditing(null)}>
+                  <Plus size={18} /> Record Ranked
                 </button>
-              )}
-              <button className="primary" onClick={() => setEditing(null)}>
-                <Plus size={18} /> Record Ranked
-              </button>
-            </div>
+              </div>
+            )}
           </div>
           {message && (
             <div className="notice" role="status">
@@ -686,6 +708,7 @@ export function App({ remote }: { remote?: RemoteStore }) {
           {page === "settings" && (
             <Settings key={state.revision} state={state} onSave={save} />
           )}
+          {page === "account" && account && <AccountPage account={account} />}
           <footer>
             <span>
               <ShieldCheck size={15} />{" "}
