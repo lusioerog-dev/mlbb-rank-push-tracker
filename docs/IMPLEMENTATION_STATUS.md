@@ -4,11 +4,10 @@ Last updated: 15 September 2026 (Asia/Kathmandu)
 
 ## Current phase
 
-Phase 7 — full automated and manual verification. All safe local checks are
-complete; the undeployed two-session Realtime scenario remains an explicit
-release gate. The next authorized work is Phase 8, but it must not
-begin until the user says
-`CONTINUE`.
+Phase 8 — final architecture, backend, deployment, maintenance, migration and
+testing documentation. The requested implementation sequence is complete. The
+undeployed two-session Realtime scenario remains an explicit production release
+gate; no deployment or production mutation was performed.
 
 ## Completed phases
 
@@ -36,8 +35,15 @@ begin until the user says
 - Phase 7: passed the complete 52-test automated suite and desktop/phone browser
   campaign, verified the signed-out boundary without credentials, and documented
   the undeployed two-session Realtime release gate without mutating production.
+- Phase 8: reconciled the current architecture and backend model, documented the
+  ordered migration/deployment/rollback path, added routine maintenance guidance,
+  and linked the final verification evidence from the project entry point.
 
-## Audit summary
+## Phase 0 audit snapshot (historical)
+
+The following sections preserve the original pre-implementation findings for
+traceability. Current behavior is documented in `architecture.md`, `backend.md`,
+`deployment.md`, `maintenance.md` and the completed-phase records above.
 
 ### Application structure and deployment
 
@@ -156,7 +162,7 @@ begin until the user says
   Performance. Hero rows and recent-match rows use `BE`/`AU` initials rather than
   portraits. No production writes were made during the audit.
 
-## Root causes
+## Original root causes (resolved or explicitly bounded)
 
 1. Account/header overlap: the globally rendered `.cloud-bar` has no sidebar
    offset or responsive ownership and precedes the app shell, while the sidebar is
@@ -259,6 +265,17 @@ begin until the user says
   browser dimensions, safety boundaries and exact live Realtime release gate.
 - Phase 7: `docs/IMPLEMENTATION_STATUS.md` — records verification results and the
   Phase 8 handoff.
+- Phase 8: `docs/architecture.md` — replaces the original research-only view with
+  the implemented Auth/Worker/normalized-storage/Realtime/domain boundaries.
+- Phase 8: `docs/backend.md` — removes retired invitation and polling guidance and
+  documents v2 APIs, security, relations, transactions and Realtime access.
+- Phase 8: `docs/deployment.md` — adds the pending-release state, ordered Realtime
+  migration rollout, live gate and rollback boundaries.
+- Phase 8: `docs/maintenance.md` — adds rank, hero, migration, backup and routine
+  verification procedures.
+- Phase 8: `README.md` and `docs/architecture-plan.md` — point operators to the
+  current implementation and distinguish deployed checkpoints from pending work.
+- Phase 8: `docs/IMPLEMENTATION_STATUS.md` — closes the implementation sequence.
 
 ## Database migrations made
 
@@ -271,6 +288,8 @@ begin until the user says
   duplicated into private workspace rows; existing `game_id` remains the key.
 - Phase 6 adds no database migration.
 - Phase 7 adds no database migration and does not apply existing migrations.
+- Phase 8 adds and applies no database migration; it documents the ordered rollout
+  of the already committed Realtime migration.
 - Existing production migrations inspected: `202609130001_shared_tracker.sql`
   through `202609140005_rank_checkpoints.sql`.
 
@@ -388,9 +407,9 @@ begin until the user says
 
 ## Exact next task
 
-Phase 8 only: reconcile the now-completed implementation with the architecture,
-maintenance, migration, deployment and testing documentation. Preserve the
-undeployed Realtime release gate and do not deploy or alter production data.
+No implementation phase remains. Production release is a separate, explicitly
+authorized operation: take a fresh backup, apply the pending Realtime migration,
+deploy Worker/frontend in order, then pass the Phase 7 two-session release gate.
 
 ## Commands needed to resume
 
@@ -436,3 +455,7 @@ npm run format:check
 - Phase 7 starting commit: `a28ba43`.
 - Phase 7 checkpoint: the top commit with message
   `phase 7: verify tracker integration`.
+- Phase 7 commit: `8ee6548` (`phase 7: verify tracker integration`).
+- Phase 8 starting commit: `8ee6548`.
+- Phase 8 checkpoint: the top commit with message
+  `phase 8: finalize tracker documentation`.

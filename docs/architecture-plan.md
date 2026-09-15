@@ -1,6 +1,9 @@
 # MLBB Pilot Push architecture plan
 
-Status: checkpoints A–E deployed, 15 September 2026; optional checkpoint F deferred.
+Status: checkpoints A–E deployed, 15 September 2026; optional checkpoint F
+deferred. The later account/Realtime/rank/portrait redesign is implemented and
+documented but awaits its ordered release and live Realtime gate. See
+[current architecture](architecture.md) and [deployment](deployment.md).
 Scope: one shared MLBB account, Gaurav and Rupesh, manual Ranked tracking first.
 Keep the working site available and deliver one small checkpoint per `continue`.
 
@@ -100,5 +103,5 @@ path and production cutover. Checkpoints [C](checkpoint-c.md),
 [D](checkpoint-d.md) and [E](checkpoint-e.md) are complete and deployed. See
 [the final release record](2026-09-15-release.md). The next planned checkpoint
 is F: the reviewed importer. It is optional for the manual season-launch release.
-Official portraits and extra analytics are optional polish; do not
-spend the remaining usage on speculative importer work or a full redesign.
+Official base portraits and the focused analytics cleanup were subsequently
+implemented without starting speculative importer work or a full redesign.
