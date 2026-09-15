@@ -1,6 +1,6 @@
 # MLBB Rank Push Tracker
 
-Refactor checkpoint: **Phase 1b (private shared-push cleanup)**. Demo/Real mode, generic workspace creation/joining, invitations and editable player controls are removed in the local code. See [current private-push setup and rollout](docs/private-push.md) and [phase checkpoints](docs/refactor-checkpoints.md). Changes are committed locally; production deployment is separate.
+Refactor checkpoint: **focused private shared-push interface (checkpoint E)**. Demo/Real mode and generic platform controls are removed; the local build now includes streamlined Ranked history plus shared hero and lane performance views. See [checkpoint E](docs/checkpoint-e.md), [current private-push setup and rollout](docs/private-push.md) and [phase checkpoints](docs/refactor-checkpoints.md). Production deployment is separate.
 
 Live website: [Push Together](https://mlbb-rank-push-tracker.pages.dev/). Hosted on Cloudflare Pages with Supabase sign-in and a Cloudflare Worker for shared storage. Personal browser storage remains available separately.
 

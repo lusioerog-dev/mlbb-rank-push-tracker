@@ -605,3 +605,59 @@ export function heroStats(state: TrackerState, matches: Match[]) {
     )
     .sort((a, b) => b.games - a.games);
 }
+
+function performance(matches: Match[]) {
+  const summary = stats(matches);
+  const completeKda = matches.filter(
+    (match) =>
+      match.kills !== null && match.deaths !== null && match.assists !== null,
+  );
+  const kills = completeKda.reduce((total, match) => total + match.kills!, 0);
+  const deaths = completeKda.reduce((total, match) => total + match.deaths!, 0);
+  const assists = completeKda.reduce(
+    (total, match) => total + match.assists!,
+    0,
+  );
+  return {
+    ...summary,
+    averageKda: completeKda.length
+      ? (kills + assists) / Math.max(1, deaths)
+      : null,
+    kdaCoverage: completeKda.length,
+  };
+}
+
+const performanceOrder = <T extends ReturnType<typeof performance>>(
+  a: T,
+  b: T,
+) => b.games - a.games || (b.winRate ?? -1) - (a.winRate ?? -1);
+
+export function heroPerformance(state: TrackerState, matches: Match[]) {
+  return state.heroes
+    .flatMap((hero) => {
+      const group = matches.filter((match) => match.heroId === hero.id);
+      return group.length ? [{ hero, ...performance(group) }] : [];
+    })
+    .sort(
+      (a, b) =>
+        performanceOrder(a, b) || a.hero.name.localeCompare(b.hero.name),
+    );
+}
+
+export function positionPerformance(matches: Match[]) {
+  const positions: Array<NonNullable<PlayedPosition>> = [
+    "gold_lane",
+    "exp_lane",
+    "mid_lane",
+    "jungle",
+    "roam",
+  ];
+  return positions
+    .flatMap((position) => {
+      const group = matches.filter(
+        (match) => match.playedPosition === position,
+      );
+      return group.length ? [{ position, ...performance(group) }] : [];
+    })
+    .sort((a, b) => performanceOrder(a, b));
+}

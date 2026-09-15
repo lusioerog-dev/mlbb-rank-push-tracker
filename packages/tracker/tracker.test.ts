@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   currentRank,
+  heroPerformance,
   heroStats,
+  positionPerformance,
   recordHeroObservation,
   saveMatch,
   starChange,
@@ -222,6 +224,38 @@ test("hero statistics remain per-player and CSV escapes spreadsheet formulas", (
   state.heroes[0]!.name = '=HYPERLINK("example")';
   assert.equal(heroStats(state, state.matches)[0]!.games, 1);
   assert.match(exportCsv(state), /'=HYPERLINK\(""example""\)/);
+});
+test("hero and position performance aggregate the selected matches and sort by games then win rate", () => {
+  const state = initialState();
+  state.heroes = [
+    { id: "bene", name: "Benedetta" },
+    { id: "miya", name: "Miya" },
+  ];
+  state.matches = state.matches.map((match, index) => ({
+    ...match,
+    heroId: index < 2 ? "bene" : "miya",
+    playedPosition: index < 2 ? "jungle" : "gold_lane",
+    result: index === 0 ? "loss" : "win",
+  }));
+  assert.deepEqual(
+    heroPerformance(state, state.matches).map((row) => [
+      row.hero.name,
+      row.games,
+      row.winRate,
+    ]),
+    [
+      ["Miya", 2, 100],
+      ["Benedetta", 2, 50],
+    ],
+  );
+  assert.deepEqual(
+    positionPerformance(state.matches).map((row) => [row.position, row.games]),
+    [
+      ["gold_lane", 2],
+      ["jungle", 2],
+    ],
+  );
+  assert.equal(heroPerformance(state, state.matches)[0]!.averageKda, 40 / 3);
 });
 test("Nepal match time conversion and date grouping are explicit", () => {
   assert.equal(

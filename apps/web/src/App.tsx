@@ -3,18 +3,17 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Check,
-  ChevronRight,
   Clock3,
   Download,
   Gamepad2,
   LayoutDashboard,
   List,
+  MapPinned,
   Plus,
   Settings2,
   ShieldCheck,
   Star,
   Swords,
-  Trophy,
   Upload,
   Users,
 } from "lucide-react";
@@ -27,16 +26,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type {
-  Match,
-  PlayedPosition,
-  TrackerState,
-} from "../../../packages/tracker/model";
+import type { Match, TrackerState } from "../../../packages/tracker/model";
 import {
   currentRank,
-  heroStats,
   ordered,
-  starChange,
   stats,
   accountProgression,
   dailyProgression,
@@ -55,6 +48,9 @@ import {
 } from "../../../packages/tracker/storage";
 import { localInput } from "../../../packages/tracker/time";
 import { MatchForm } from "./MatchForm";
+import { MatchHistory } from "./MatchHistory";
+import { PerformancePage } from "./Performance";
+import { PlayerScope } from "./PlayerScope";
 import { Settings } from "./Settings";
 import type { RemoteStore } from "./Cloud";
 
@@ -64,16 +60,6 @@ const percent = (value: number | null) =>
   value === null ? "—" : `${value.toFixed(1)}%`;
 const duration = (seconds: number) =>
   `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
-const positionLabel = (position: PlayedPosition | undefined) =>
-  position
-    ? {
-        exp_lane: "EXP lane",
-        gold_lane: "Gold lane",
-        mid_lane: "Mid lane",
-        roam: "Roam",
-        jungle: "Jungle",
-      }[position]
-    : null;
 function download(filename: string, text: string, type = "application/json") {
   const url = URL.createObjectURL(new Blob([text], { type }));
   const anchor = document.createElement("a");
@@ -82,7 +68,7 @@ function download(filename: string, text: string, type = "application/json") {
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-type Page = "overview" | "matches" | "heroes" | "settings";
+type Page = "overview" | "matches" | "heroes" | "lanes" | "settings";
 export function App({ remote }: { remote?: RemoteStore }) {
   const [state, setState] = useState<TrackerState | null>(null);
   const [fatal, setFatal] = useState("");
@@ -90,7 +76,6 @@ export function App({ remote }: { remote?: RemoteStore }) {
   const [message, setMessage] = useState("");
   const [editing, setEditing] = useState<Match | null | undefined>(undefined);
   const [player, setPlayer] = useState("all");
-  const [mode, setMode] = useState("ranked");
   const [windowSize, setWindowSize] = useState("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -231,17 +216,19 @@ export function App({ remote }: { remote?: RemoteStore }) {
     );
   if (!state) return <main className="recovery">Opening your tracker…</main>;
   const rank = currentRank(state);
-  const filtered = ordered(state.matches).filter(
+  const ranked = ordered(state.matches).filter(
+    (match) => match.mode === "ranked",
+  );
+  const filtered = ranked.filter(
     (m) =>
       (player === "all" || m.playerId === player) &&
-      (mode === "all" || m.mode === mode) &&
       (!from ||
         localInput(m.playedAt, state.push.timezone).slice(0, 10) >= from) &&
       (!to || localInput(m.playedAt, state.push.timezone).slice(0, 10) <= to),
   );
   const matches =
     page === "overview"
-      ? ordered(state.matches).filter((m) => m.mode === "ranked")
+      ? ranked
       : windowSize === "all"
         ? filtered
         : filtered.slice(-Number(windowSize));
@@ -268,104 +255,9 @@ export function App({ remote }: { remote?: RemoteStore }) {
     ["overview", "Overview", LayoutDashboard],
     ["matches", "Match history", List],
     ["heroes", "Hero performance", Swords],
+    ["lanes", "Lane performance", MapPinned],
     ["settings", "Settings", Settings2],
   ];
-  const renderHistory = (rows: Match[]) => (
-    <div className="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>Match / time</th>
-            <th>Player</th>
-            <th>Hero</th>
-            <th>K / D / A</th>
-            <th>Duration</th>
-            <th>Stars</th>
-            <th>
-              <span className="sr-only">Edit</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {[...rows].reverse().map((m) => (
-            <tr key={m.id}>
-              <td>
-                <span className={`result ${m.result}`}>
-                  {m.result === "win"
-                    ? "Victory"
-                    : m.result === "loss"
-                      ? "Defeat"
-                      : m.result}
-                </span>
-                <small>
-                  {date(m.playedAt)} · {m.mode}
-                  {m.battleId ? ` · Battle ${m.battleId}` : ""}
-                </small>
-              </td>
-              <td>
-                <span
-                  className={`player-dot p${state.players.findIndex((p) => p.id === m.playerId) % 3}`}
-                />
-                {playerName(m.playerId)}
-              </td>
-              <td>
-                {state.heroes.find((h) => h.id === m.heroId)?.name ?? (
-                  <span className="muted">Not recorded</span>
-                )}
-                {positionLabel(m.playedPosition) && (
-                  <small>{positionLabel(m.playedPosition)}</small>
-                )}
-              </td>
-              <td className="mono">
-                {[m.kills, m.deaths, m.assists]
-                  .map((n) => n ?? "—")
-                  .join(" / ")}
-              </td>
-              <td className="mono">
-                {m.durationSeconds === null
-                  ? "—"
-                  : `${Math.floor(m.durationSeconds / 60)}:${String(m.durationSeconds % 60).padStart(2, "0")}`}
-              </td>
-              <td>
-                <strong
-                  className={
-                    starChange(m) !== null && starChange(m)! > 0
-                      ? "positive"
-                      : starChange(m) !== null && starChange(m)! < 0
-                        ? "negative"
-                        : ""
-                  }
-                >
-                  {signed(starChange(m))}
-                </strong>
-                {(m.starsBefore !== null || m.starsAfter !== null) && (
-                  <small>
-                    {m.starsBefore ?? "—"} → {m.starsAfter ?? "—"}
-                  </small>
-                )}
-              </td>
-              <td>
-                <button
-                  className="icon-button"
-                  onClick={() => setEditing(m)}
-                  aria-label={`Edit match ${date(m.playedAt)}`}
-                >
-                  <ChevronRight size={18} />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {!rows.length && (
-        <div className="empty">
-          <Gamepad2 />
-          <h3>No matches in this view</h3>
-          <p>Record a match or adjust your filters.</p>
-        </div>
-      )}
-    </div>
-  );
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -405,41 +297,41 @@ export function App({ remote }: { remote?: RemoteStore }) {
         </div>
       </aside>
       <div className="workspace">
-        <header className="topbar">
-          <span className="breadcrumb">
-            <strong>{nav.find((n) => n[0] === page)![1]}</strong>
-          </span>
-          <div className="top-actions">
-            {shared && (
-              <button
-                onClick={() => {
-                  if (
-                    !saving.current &&
-                    window.confirm(
-                      "Refresh shared data? Unsaved form changes will be discarded.",
-                    )
-                  )
-                    setReload(reload + 1);
-                }}
-              >
-                Refresh shared data
-              </button>
-            )}
-          </div>
-        </header>
         <main>
           <div className="page-heading">
             <div>
-              <p className="eyebrow">{state.push.season || "CURRENT SEASON"}</p>
+              <p className="eyebrow">
+                {page === "overview"
+                  ? state.push.season || "CURRENT SEASON"
+                  : state.push.name}
+              </p>
               <h1>
                 {page === "overview"
                   ? state.push.name
                   : nav.find((n) => n[0] === page)![1]}
               </h1>
             </div>
-            <button className="primary" onClick={() => setEditing(null)}>
-              <Plus size={18} /> Record Ranked
-            </button>
+            <div className="page-actions">
+              {shared && (
+                <button
+                  className="quiet-button"
+                  onClick={() => {
+                    if (
+                      !saving.current &&
+                      window.confirm(
+                        "Refresh shared data? Unsaved form changes will be discarded.",
+                      )
+                    )
+                      setReload(reload + 1);
+                  }}
+                >
+                  Refresh
+                </button>
+              )}
+              <button className="primary" onClick={() => setEditing(null)}>
+                <Plus size={18} /> Record Ranked
+              </button>
+            </div>
           </div>
           {message && (
             <div className="notice" role="status">
@@ -450,40 +342,18 @@ export function App({ remote }: { remote?: RemoteStore }) {
               </button>
             </div>
           )}
-          {(page === "matches" || page === "heroes") && (
+          {page === "matches" && (
             <div className="filters">
-              <label>
-                <span className="sr-only">Player</span>
-                <select
-                  value={player}
-                  onChange={(e) => setPlayer(e.target.value)}
-                >
-                  <option value="all">All</option>
-                  {state.players.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {playerName(p.id)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <select
-                aria-label="Mode filter"
-                value={mode}
-                onChange={(e) => setMode(e.target.value)}
-              >
-                <option value="ranked">Ranked matches</option>
-                <option value="all">All modes</option>
-                <option value="classic">Classic</option>
-              </select>
+              <PlayerScope value={player} onChange={setPlayer} />
               <select
                 aria-label="Recent period"
                 value={windowSize}
                 onChange={(e) => setWindowSize(e.target.value)}
               >
-                <option value="all">All matches</option>
-                <option value="10">Last 10</option>
-                <option value="20">Last 20</option>
-                <option value="50">Last 50</option>
+                <option value="all">All time</option>
+                <option value="10">Recent 10</option>
+                <option value="20">Recent 20</option>
+                <option value="50">Recent 50</option>
               </select>
               <label className="date-filter">
                 From
@@ -590,21 +460,13 @@ export function App({ remote }: { remote?: RemoteStore }) {
                   </div>
                   <div className="stat-card">
                     <span className="stat-icon">
-                      <Trophy size={20} />
-                    </span>
-                    <p>Win rate</p>
-                    <strong>{percent(summary.winRate)}</strong>
-                    <small>Wins ÷ decided games</small>
-                  </div>
-                  <div className="stat-card">
-                    <span className="stat-icon">
                       <Star size={20} />
                     </span>
-                    <p>Wins / losses</p>
+                    <p>W–L record</p>
                     <strong>
-                      {summary.wins} / {summary.losses}
+                      {summary.wins}W – {summary.losses}L
                     </strong>
-                    <small>This season · Ranked</small>
+                    <small>{percent(summary.winRate)} win rate</small>
                   </div>
                   <div className="stat-card">
                     <span className="stat-icon">
@@ -685,7 +547,9 @@ export function App({ remote }: { remote?: RemoteStore }) {
                           formatter={(value) => [`${value} stars`, "Account"]}
                           labelFormatter={(_label, payload) =>
                             payload[0]?.payload
-                              ? `${payload[0].payload.label}: ${payload[0].payload.startingStars ?? "?"} → ${payload[0].payload.stars ?? "?"} · ${signed(payload[0].payload.delta)} stars${graphMode === "day" ? ` · ${payload[0].payload.games} games, ${payload[0].payload.wins}W/${payload[0].payload.losses}L` : ` · ${payload[0].payload.player}`}`
+                              ? payload[0].payload.stars === null
+                                ? `${payload[0].payload.label}: progress unavailable`
+                                : `${payload[0].payload.label}: ${payload[0].payload.stars} stars · ${signed(payload[0].payload.delta)}${graphMode === "day" ? ` · ${payload[0].payload.games} games, ${payload[0].payload.wins}W/${payload[0].payload.losses}L` : ` · ${payload[0].payload.player}`}`
                               : "Account"
                           }
                         />
@@ -780,7 +644,11 @@ export function App({ remote }: { remote?: RemoteStore }) {
                     View all matches <ArrowUpRight size={16} />
                   </button>
                 </div>
-                {renderHistory(matches.slice(-5))}
+                <MatchHistory
+                  state={state}
+                  matches={matches.slice(-5)}
+                  onEdit={setEditing}
+                />
               </section>
             </>
           )}
@@ -790,63 +658,30 @@ export function App({ remote }: { remote?: RemoteStore }) {
                 <h2>Match log</h2>
                 <span className="tag">Times in {state.push.timezone}</span>
               </div>
-              {renderHistory(matches)}
+              <MatchHistory
+                state={state}
+                matches={matches}
+                onEdit={setEditing}
+              />
             </section>
           )}
           {page === "heroes" && (
-            <section className="panel">
-              <div className="section-heading">
-                <h2>Player × hero</h2>
-                <span className="tag">
-                  {matches.filter((m) => m.heroId !== null).length}/
-                  {matches.length} heroes recorded
-                </span>
-              </div>
-              {heroStats(state, matches).length ? (
-                <div className="table-scroll">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Hero</th>
-                        <th>Player</th>
-                        <th>Games</th>
-                        <th>Win rate</th>
-                        <th>Net stars</th>
-                        <th>Time</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {heroStats(state, matches).map((h) => (
-                        <tr key={`${h.player.id}-${h.hero.id}`}>
-                          <td>
-                            <strong>{h.hero.name}</strong>
-                          </td>
-                          <td>{playerName(h.player.id)}</td>
-                          <td>{h.games}</td>
-                          <td>{percent(h.winRate)}</td>
-                          <td>{signed(h.net)}</td>
-                          <td>
-                            {h.durationCoverage ? duration(h.seconds) : "—"}
-                            <small>
-                              {h.durationCoverage}/{h.games} recorded
-                            </small>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="empty">
-                  <Swords />
-                  <h3>Give each match a hero</h3>
-                  <p>Your first confirmed hero is all it takes to start.</p>
-                  <button onClick={() => setPage("matches")}>
-                    Open match history
-                  </button>
-                </div>
-              )}
-            </section>
+            <PerformancePage
+              kind="hero"
+              state={state}
+              matches={ranked}
+              player={player}
+              onPlayerChange={setPlayer}
+            />
+          )}
+          {page === "lanes" && (
+            <PerformancePage
+              kind="position"
+              state={state}
+              matches={ranked}
+              player={player}
+              onPlayerChange={setPlayer}
+            />
           )}
           {page === "settings" && (
             <Settings key={state.revision} state={state} onSave={save} />
