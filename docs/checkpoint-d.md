@@ -1,6 +1,6 @@
 # Checkpoint D: rank checkpoints, placement and targets
 
-Status: locally complete on 14 September 2026; not deployed.
+Status: deployed on 15 September 2026.
 
 Checkpoint D makes rank uncertainty and goals explicit. The tracker still uses
 actual star changes and stops derivation at an unknown boundary. A confirmed
@@ -42,5 +42,5 @@ target and no invented checkpoints.
 A local browser check set a 125-star Mythic target, displayed 7 remaining rank
 stars, and verified the checkpoint tier, stars, type and confirmation-reason
 controls. The browser reported no errors. Tests, type checks, lint, formatting
-and the production build passed. No Worker, Pages or production database change
-was made.
+and the production build passed. The final release repeated the rehearsal before
+applying the migration; see [the release record](2026-09-15-release.md).

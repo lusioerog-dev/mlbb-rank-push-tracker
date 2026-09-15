@@ -1,12 +1,12 @@
 # MLBB Rank Push Tracker
 
-Refactor checkpoint: **focused private shared-push interface (checkpoint E)**. Demo/Real mode and generic platform controls are removed; the local build now includes streamlined Ranked history plus shared hero and lane performance views. See [checkpoint E](docs/checkpoint-e.md), [current private-push setup and rollout](docs/private-push.md) and [phase checkpoints](docs/refactor-checkpoints.md). Production deployment is separate.
+Release status: **checkpoints A–E are live**. Demo/Real mode and generic platform controls are removed; production now includes streamlined Ranked history plus shared hero and lane performance views. See [the production release record](docs/2026-09-15-release.md), [checkpoint E](docs/checkpoint-e.md), [current private-push setup and rollout](docs/private-push.md) and [phase checkpoints](docs/refactor-checkpoints.md).
 
 Live website: [Push Together](https://mlbb-rank-push-tracker.pages.dev/). Hosted on Cloudflare Pages with Supabase sign-in and a Cloudflare Worker for shared storage. Personal browser storage remains available separately.
 
 The shared backend uses Supabase sign-in, Worker validation, and PostgreSQL revision/audit storage. The new UI opens the configured shared push directly after sign-in. See [backend setup and verification](docs/backend.md), [rank rules and season setup](docs/rank-rules.md), and [the feature change report](docs/2026-09-13-update.md).
 
-A shared-account rank tracker for Rupesh and Gaurav, with fixed user-facing names. The **local manual-entry MVP** supports recording matches, reviewing account stars, comparing players, hero performance, and data export/restore.
+A shared-account rank tracker for Rupesh and Gaurav, with fixed user-facing names. The manual-entry release supports recording matches, reviewing account stars, comparing players, hero and lane performance, season rollover, and data export/restore.
 
 ## Run locally
 
@@ -31,7 +31,7 @@ The static dashboard build is in `dist/web`; collector compilation remains in `d
 
 ## First use
 
-1. The real tracker contains four screenshot-reviewed matches, all attributed to Gaurav as confirmed by the user. The shared account moved from 115 to 117 stars.
+1. The production tracker currently contains three confirmed wins across Gaurav and Rupesh. The shared account is at 103 Mythical Immortal stars.
 2. Select the season's actual starting rank/division/stars, timezone in Settings. The target remains optional. Reset ranks are not guessed.
 3. Choose **Record match**, select who played, and enter the actual star change. A protected loss can have zero change. Before/after observations remain optional for compatibility; empty values stay unknown. Rank is derived without typing a rank for each match.
 4. Enter a hero name when known; it becomes a reusable hero entity. Screenshot hero names await user confirmation.
@@ -41,7 +41,7 @@ Filters apply to match/player/hero statistics. The shared account card and progr
 
 ## Data and limitations
 
-- Browser storage is a temporary local adapter behind `StoragePort`. No database credentials, API, login, background sync or FightHistory decoding is implemented.
+- Production uses Supabase sign-in, a Cloudflare Worker and PostgreSQL. Browser storage remains a local development and recovery adapter behind `StoragePort`. FightHistory decoding is not implemented.
 - One active push per stored snapshot in this version. Existing shared seasons remain separate workspaces until the season refactor. See the rank-rules documentation for supported transitions and placement limits.
 - The seed's 09/12 times come from screenshots. The 2026 year and Nepal UTC offset are contextual assumptions, stated in every seed note and editable. Screenshot capture times are not used as match times.
 - The private screenshot review remains preserved. Its old demo assignments are no longer included in the application.
@@ -52,8 +52,8 @@ Filters apply to match/player/hero statistics. The shared account card and progr
 ## Architecture
 
 ```text
-Current: manual form -> Zod validation -> tracker domain -> local storage
-                                      -> analytics -> React dashboard
+Current: manual form -> Zod validation -> tracker domain -> Worker API
+                                      -> PostgreSQL -> React dashboard
 
 Future: read-only source -> verified parser -> normalizer -> versioned match
         -> authenticated Worker API -> Supabase PostgreSQL -> dashboard
@@ -65,7 +65,7 @@ See [architecture](docs/architecture.md), [manual MVP design](docs/manual-mvp.md
 
 ## Cloud and environment configuration
 
-`.env.example` lists future server-only values. The manual MVP does not need or read them. Never expose a Supabase service-role key using a `VITE_` variable. The frontend is deployed on Cloudflare Pages using direct upload; Git pushes do not automatically publish website updates. See [deployment instructions](docs/deployment.md). Worker API and Supabase PostgreSQL integration remain planned, with local/development/production isolation and tracked migrations. No Azure resources are used.
+`.env.example` documents the local and deployment configuration. Never expose a Supabase service-role key using a `VITE_` variable. The frontend is deployed on Cloudflare Pages using direct upload; Git pushes do not automatically publish website updates. The Worker API uses Supabase authentication and PostgreSQL through tracked migrations. See [deployment instructions](docs/deployment.md). No Azure resources are used.
 
 ## Troubleshooting
 

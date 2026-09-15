@@ -1,12 +1,23 @@
-# Publishing the manual tracker
+# Production deployment
 
 Source repository: https://github.com/lusioerog-dev/mlbb-rank-push-tracker (private). Production source branch: `master`.
 
-The current application is a static frontend. Publishing gives it a reachable URL, but each browser still has independent local data. Localhost data does not automatically move to the deployed origin: export JSON from the old browser/origin and restore it at the new one. There is no Supabase database or account login to configure for this release.
+Production consists of a Cloudflare Pages frontend, a Cloudflare Worker API,
+Supabase sign-in and PostgreSQL shared storage. The stable site is
+https://mlbb-rank-push-tracker.pages.dev/ and the API is
+https://mlbb-tracker-api.lusioer-og.workers.dev.
+
+The focused tracker release was deployed and verified on 15 September 2026.
+Its release details, backup checksum, database inventory and deployment IDs are
+recorded in [the release report](2026-09-15-release.md).
 
 ## Cloudflare Pages
 
-Use Node 24, repository root as the working directory, `npm run build` as the build command, and **`dist/web`** as the output directory. Do not deploy the whole `dist` directory: it also contains compiled collector tests and tooling. No secrets or environment variables are needed by the browser app.
+Use Node 24, repository root as the working directory, `npm run build` as the
+build command, and **`dist/web`** as the output directory. Do not deploy the
+whole `dist` directory: it also contains compiled collector tests and tooling.
+The browser build requires the public Supabase and Worker endpoint settings;
+privileged database credentials stay in the Worker.
 
 For a direct upload deployment:
 
@@ -21,4 +32,7 @@ The `_headers` file adds basic browser security headers. Only application assets
 
 Official references checked 2026-09-12: [Direct Upload](https://developers.cloudflare.com/pages/get-started/direct-upload/), [Build configuration](https://developers.cloudflare.com/pages/configuration/build-configuration/).
 
-Production: https://mlbb-rank-push-tracker.pages.dev/ — deployed with direct upload and verified on 2026-09-13. The live dashboard loaded the four seeded matches and shared account total of 117 stars.
+Production: https://mlbb-rank-push-tracker.pages.dev/ — deployed with direct
+upload and verified on 15 September 2026. The signed-in dashboard loaded the
+revision-8 shared state at 103 stars with three wins and exposed the new Hero
+Performance and Lane Performance pages.

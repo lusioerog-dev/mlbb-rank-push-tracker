@@ -1,5 +1,7 @@
 # Checkpoint E: focused tracker interface
 
+Status: deployed on 15 September 2026.
+
 Checkpoint E delivers the visible private-tracker redesign while keeping the
 normalized season, match and rank records from checkpoints B–D unchanged.
 
@@ -27,7 +29,6 @@ rewrite stored matches. Average KDA includes only matches with complete K/D/A.
 Unknown heroes, positions, KDA, duration and progression remain visibly
 unavailable instead of becoming zero or inferred values.
 
-No database migration or production deployment is part of this checkpoint.
 Official hero portraits and game artwork remain replaceable presentation polish;
 the current interface uses compact local initials and position symbols so it has
 no fragile third-party asset dependency.
@@ -40,6 +41,6 @@ no fragile third-party asset dependency.
   Match History, expanded match details, Hero Performance, Lane Performance and
   the Ranked match form.
 
-The next planned checkpoint is F, the reviewed importer. It remains optional for
-the manual season-launch release and must not be started without another
-`continue`.
+The final release deployed this interface with the checkpoint C and D migrations;
+see [the release record](2026-09-15-release.md). Checkpoint F, the reviewed
+importer, remains optional and deferred.

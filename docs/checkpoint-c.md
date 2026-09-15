@@ -1,6 +1,6 @@
 # Checkpoint C: match and hero identity
 
-Status: locally complete on 14 September 2026; not deployed.
+Status: deployed on 15 September 2026.
 
 Checkpoint C adds the optional identifiers needed for reliable future imports
 without requiring them for manual tracking. Existing records remain valid and
@@ -24,8 +24,7 @@ Migration `202609140004_match_identity.sql` creates the account hero registry,
 adds typed identity and position columns to normalized matches, and installs
 account-wide uniqueness and record-consistency constraints. It preserves the
 complete match JSON and keeps inactive hero identities for historical references.
-The migration is staged for the final release and has not been applied to the
-production database.
+The migration was applied to production during the final release.
 
 ## Verification
 
@@ -38,5 +37,5 @@ The migration was also rehearsed against the checksum-verified revision-8
 production backup. It retained all three matches, the 103-star Mythical Immortal
 rank, 3 wins, 0 losses and 4,889 recorded seconds while leaving legacy rows
 unchanged. A local browser save confirmed that Battle ID, Benedetta, its verified
-ID and Jungle render correctly in match history. No Worker, Pages or production
-database change was made.
+ID and Jungle render correctly in match history. The final release repeated the
+rehearsal before applying the migration; see [the release record](2026-09-15-release.md).

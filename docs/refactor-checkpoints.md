@@ -6,9 +6,9 @@ scope history. Checkpoint A is complete: [backup and rehearsal evidence](backup-
 Checkpoint B is complete: [B1 added the normalized read model](checkpoint-b1.md)
 and [B2 completed transactional saves and the production cutover](checkpoint-b2.md).
 [Checkpoint C](checkpoint-c.md), [checkpoint D](checkpoint-d.md) and
-[checkpoint E](checkpoint-e.md) are complete locally. The next planned
-checkpoint is F, the optional reviewed importer. Per the updated release plan,
-local checkpoints deploy together after final QA and review.
+[checkpoint E](checkpoint-e.md) were deployed together on 15 September 2026
+after the backup rehearsal and final QA. See [the release record](2026-09-15-release.md).
+The next planned checkpoint is F, the optional reviewed importer.
 
 ## Phase protocol
 

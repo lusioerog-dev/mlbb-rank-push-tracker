@@ -1,6 +1,6 @@
 # MLBB Pilot Push architecture plan
 
-Status: active plan after checkpoint B production cutover, 14 September 2026.
+Status: checkpoints A–E deployed, 15 September 2026; optional checkpoint F deferred.
 Scope: one shared MLBB account, Gaurav and Rupesh, manual Ranked tracking first.
 Keep the working site available and deliver one small checkpoint per `continue`.
 
@@ -91,16 +91,14 @@ Unknown values stay null rather than becoming zero or a guessed result.
 | F     | Reviewed importer                            | Verified source data exists; retries and manual overrides are safe. |
 
 Each checkpoint includes its relevant tests, diff review, Git checkpoint and
-release notes. Following the production B2 cutover, keep checkpoints C–F local
-and deploy them together only after final QA and user review. Stop before the
-next checkpoint.
+release notes. Checkpoints C–E were deployed together after the final rehearsal
+and production backup verification. Stop before optional checkpoint F.
 Checkpoint A is complete; see [its results and limitations](backup-rehearsal.md).
 Checkpoint B is complete: [B1](checkpoint-b1.md) introduced and rehearsed the
 additive read model, and [B2](checkpoint-b2.md) completed the transactional save
-path and production cutover. Checkpoint C is complete locally; see
-[its report](checkpoint-c.md). Checkpoint D is also complete locally; see
-[its report](checkpoint-d.md). Checkpoint E is complete locally; see
-[its report](checkpoint-e.md). The next planned checkpoint is F: the reviewed
-importer. It is optional for the manual season-launch release.
+path and production cutover. Checkpoints [C](checkpoint-c.md),
+[D](checkpoint-d.md) and [E](checkpoint-e.md) are complete and deployed. See
+[the final release record](2026-09-15-release.md). The next planned checkpoint
+is F: the reviewed importer. It is optional for the manual season-launch release.
 Official portraits and extra analytics are optional polish; do not
 spend the remaining usage on speculative importer work or a full redesign.
