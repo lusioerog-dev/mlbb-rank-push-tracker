@@ -552,7 +552,35 @@ export function recordHeroObservation(
     : undefined;
   if (byGameId && byName && byGameId.id !== byName.id)
     throw new Error("The hero name and verified ID refer to different heroes.");
-  const existing = byGameId ?? byName;
+  const catalogNameMatches = metadata?.name.toLocaleLowerCase() === normalized;
+  const staleNameOwner =
+    !byGameId &&
+    byName?.gameId &&
+    metadata &&
+    catalogNameMatches &&
+    normalizeHeroGameId(byName.gameId) !== normalizedGameId
+      ? byName
+      : undefined;
+  const reconciledState = staleNameOwner
+    ? stateSchema.parse({
+        ...state,
+        heroes: state.heroes.map((hero) => {
+          if (hero.id !== staleNameOwner.id) return hero;
+          const ownerMetadata = heroMetadataByGameId(hero.gameId);
+          const correctedName = ownerMetadata?.name ?? hero.name;
+          return {
+            ...hero,
+            name: correctedName,
+            aliases: (hero.aliases ?? []).filter(
+              (alias) =>
+                alias.toLocaleLowerCase() !== normalized &&
+                alias.toLocaleLowerCase() !== correctedName.toLocaleLowerCase(),
+            ),
+          };
+        }),
+      })
+    : state;
+  const existing = byGameId ?? (staleNameOwner ? undefined : byName);
   if (!existing && !heroName && !metadata)
     throw new Error("Enter a hero name with a new verified hero ID.");
   if (
@@ -578,7 +606,10 @@ export function recordHeroObservation(
           : ([] as string[]),
     };
     return {
-      state: stateSchema.parse({ ...state, heroes: [...state.heroes, hero] }),
+      state: stateSchema.parse({
+        ...reconciledState,
+        heroes: [...reconciledState.heroes, hero],
+      }),
       heroId: hero.id,
       observation,
     };
@@ -610,8 +641,8 @@ export function recordHeroObservation(
   };
   return {
     state: stateSchema.parse({
-      ...state,
-      heroes: state.heroes.map((hero) =>
+      ...reconciledState,
+      heroes: reconciledState.heroes.map((hero) =>
         hero.id === updated.id ? updated : hero,
       ),
     }),

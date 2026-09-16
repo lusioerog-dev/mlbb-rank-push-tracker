@@ -173,6 +173,42 @@ test("known numeric hero IDs resolve to the controlled canonical hero", () => {
     }),
   );
 });
+test("a known hero ID corrects a stale name alias from an earlier mistake", () => {
+  const mistaken = recordHeroObservation(
+    initialState(),
+    "Granger",
+    "80",
+    "hero-guinevere",
+  );
+  assert.deepEqual(mistaken.state.heroes[0], {
+    id: "hero-guinevere",
+    name: "Guinevere",
+    gameId: "80",
+    aliases: ["Granger"],
+  });
+
+  const corrected = recordHeroObservation(
+    mistaken.state,
+    "Granger",
+    "79",
+    "hero-granger",
+  );
+  assert.equal(corrected.heroId, "hero-granger");
+  assert.deepEqual(corrected.state.heroes, [
+    {
+      id: "hero-guinevere",
+      name: "Guinevere",
+      gameId: "80",
+      aliases: [],
+    },
+    {
+      id: "hero-granger",
+      name: "Granger",
+      gameId: "79",
+      aliases: [],
+    },
+  ]);
+});
 test("runtime validation rejects malformed imports and broken references", () => {
   const state = initialState();
   assert.throws(
